@@ -1,7 +1,9 @@
 import axios from 'axios';
 import type { ChatMessage, AICompanion } from '@/types';
 
-const APP_ID = import.meta.env.VITE_APP_ID;
+const DEEPSEEK_API_KEY = import.meta.env.VITE_DEEPSEEK_API_KEY;
+const DEEPSEEK_API_URL = import.meta.env.VITE_DEEPSEEK_API_URL;
+const DEEPSEEK_MODEL = import.meta.env.VITE_DEEPSEEK_MODEL;
 
 interface AIMessage {
   role: 'user' | 'assistant' | 'system';
@@ -13,7 +15,7 @@ const aiClient = axios.create({
   timeout: 60000,
   headers: {
     'Content-Type': 'application/json',
-    'X-App-Id': APP_ID,
+    'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
   },
 });
 
@@ -35,17 +37,16 @@ export const aiService = {
         });
       }
 
-      const response = await aiClient.post(
-        'https://api-integrations.appmiaoda.com/app-7gn2vl8qe60x/api-2bk93oeO9NlE/v2/chat/completions',
-        {
-          messages: formattedMessages,
-          enable_thinking: false,
-        }
-      );
+      const response = await aiClient.post(DEEPSEEK_API_URL, {
+        model: DEEPSEEK_MODEL,
+        messages: formattedMessages,
+        temperature: 0.7,
+        max_tokens: 2000,
+      });
 
-      // 处理流式响应
-      if (response.data?.choices?.[0]?.delta?.content) {
-        return response.data.choices[0].delta.content;
+      // 处理DeepSeek API响应
+      if (response.data?.choices?.[0]?.message?.content) {
+        return response.data.choices[0].message.content;
       }
 
       return '抱歉，我现在无法回应。';
@@ -74,20 +75,20 @@ export const aiService = {
         });
       }
 
-      const response = await fetch(
-        'https://api-integrations.appmiaoda.com/app-7gn2vl8qe60x/api-2bk93oeO9NlE/v2/chat/completions',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-App-Id': APP_ID,
-          },
-          body: JSON.stringify({
-            messages: formattedMessages,
-            enable_thinking: false,
-          }),
-        }
-      );
+      const response = await fetch(DEEPSEEK_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: DEEPSEEK_MODEL,
+          messages: formattedMessages,
+          temperature: 0.7,
+          max_tokens: 2000,
+          stream: true,
+        }),
+      });
 
       if (!response.ok) {
         throw new Error('Network response was not ok');
@@ -109,10 +110,13 @@ export const aiService = {
 
         for (const line of lines) {
           if (line.startsWith('data: ')) {
+            const data = line.slice(6);
+            if (data === '[DONE]') continue;
+            
             try {
-              const data = JSON.parse(line.slice(6));
-              if (data.choices?.[0]?.delta?.content) {
-                onChunk(data.choices[0].delta.content);
+              const parsed = JSON.parse(data);
+              if (parsed.choices?.[0]?.delta?.content) {
+                onChunk(parsed.choices[0].delta.content);
               }
             } catch (e) {
               // 忽略解析错误

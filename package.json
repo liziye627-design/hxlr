@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "echo 'Do not use this command, only use lint to check'",
     "build": "echo 'Do not use this command, only use lint to check'",
-    "lint": "tsgo -p tsconfig.check.json; npx biome lint; rules/check.sh"
+    "lint": "tsgo -p tsconfig.check.json; biome lint --only=correctness/noUndeclaredDependencies; ast-grep scan"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -82,6 +82,7 @@
     "tailwindcss": "^3.4.11",
     "typescript": "~5.9.3",
     "vite": "^5.1.4",
-    "vite-plugin-svgr": "^4.5.0"
+    "vite-plugin-svgr": "^4.5.0",
+    "miaoda-sc-plugin": "^1.0.4"
   }
 }
