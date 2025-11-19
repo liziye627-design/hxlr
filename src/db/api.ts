@@ -422,3 +422,216 @@ export const rankingApi = {
     return data;
   },
 };
+
+// 狼人杀相关API
+export const werewolfApi = {
+  // 获取所有人设
+  async getAllPersonas(): Promise<any[]> {
+    const { data, error } = await supabase
+      .from('werewolf_personas')
+      .select('*')
+      .order('usage_count', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching personas:', error);
+      return [];
+    }
+
+    return Array.isArray(data) ? data : [];
+  },
+
+  // 获取公开人设
+  async getPublicPersonas(): Promise<any[]> {
+    const { data, error } = await supabase
+      .from('werewolf_personas')
+      .select('*')
+      .eq('is_public', true)
+      .order('rating', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching public personas:', error);
+      return [];
+    }
+
+    return Array.isArray(data) ? data : [];
+  },
+
+  // 获取用户自定义人设
+  async getUserPersonas(userId: string): Promise<any[]> {
+    const { data, error } = await supabase
+      .from('werewolf_personas')
+      .select('*')
+      .eq('creator_user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching user personas:', error);
+      return [];
+    }
+
+    return Array.isArray(data) ? data : [];
+  },
+
+  // 创建自定义人设
+  async createPersona(persona: any): Promise<any | null> {
+    const { data, error } = await supabase
+      .from('werewolf_personas')
+      .insert(persona)
+      .select()
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error creating persona:', error);
+      return null;
+    }
+
+    return data;
+  },
+
+  // 更新人设
+  async updatePersona(personaId: string, updates: any): Promise<any | null> {
+    const { data, error } = await supabase
+      .from('werewolf_personas')
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq('id', personaId)
+      .select()
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error updating persona:', error);
+      return null;
+    }
+
+    return data;
+  },
+
+  // 增加人设使用次数
+  async incrementPersonaUsage(personaId: string): Promise<void> {
+    const { data: persona } = await supabase
+      .from('werewolf_personas')
+      .select('usage_count')
+      .eq('id', personaId)
+      .maybeSingle();
+
+    if (persona) {
+      await supabase
+        .from('werewolf_personas')
+        .update({ usage_count: persona.usage_count + 1 })
+        .eq('id', personaId);
+    }
+  },
+
+  // 获取游戏配置
+  async getGameConfigs(): Promise<any[]> {
+    const { data, error } = await supabase
+      .from('werewolf_game_configs')
+      .select('*')
+      .order('player_count', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching game configs:', error);
+      return [];
+    }
+
+    return Array.isArray(data) ? data : [];
+  },
+
+  // 获取指定人数的游戏配置
+  async getConfigByPlayerCount(playerCount: 6 | 9 | 12): Promise<any | null> {
+    const { data, error } = await supabase
+      .from('werewolf_game_configs')
+      .select('*')
+      .eq('player_count', playerCount)
+      .eq('is_default', true)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error fetching game config:', error);
+      return null;
+    }
+
+    return data;
+  },
+
+  // 记录发言
+  async recordSpeech(speech: any): Promise<any | null> {
+    const { data, error } = await supabase
+      .from('werewolf_speech_records')
+      .insert(speech)
+      .select()
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error recording speech:', error);
+      return null;
+    }
+
+    return data;
+  },
+
+  // 获取会话的所有发言记录
+  async getSessionSpeeches(sessionId: string): Promise<any[]> {
+    const { data, error } = await supabase
+      .from('werewolf_speech_records')
+      .select('*')
+      .eq('session_id', sessionId)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching speeches:', error);
+      return [];
+    }
+
+    return Array.isArray(data) ? data : [];
+  },
+
+  // 创建人设学习任务
+  async createPersonaLearning(learning: any): Promise<any | null> {
+    const { data, error } = await supabase
+      .from('werewolf_persona_learning')
+      .insert(learning)
+      .select()
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error creating persona learning:', error);
+      return null;
+    }
+
+    return data;
+  },
+
+  // 更新人设学习任务
+  async updatePersonaLearning(learningId: string, updates: any): Promise<any | null> {
+    const { data, error } = await supabase
+      .from('werewolf_persona_learning')
+      .update(updates)
+      .eq('id', learningId)
+      .select()
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error updating persona learning:', error);
+      return null;
+    }
+
+    return data;
+  },
+
+  // 获取用户的学习记录
+  async getUserLearningRecords(userId: string): Promise<any[]> {
+    const { data, error } = await supabase
+      .from('werewolf_persona_learning')
+      .select('*, generated_persona:werewolf_personas(*)')
+      .eq('target_user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching learning records:', error);
+      return [];
+    }
+
+    return Array.isArray(data) ? data : [];
+  },
+};
+

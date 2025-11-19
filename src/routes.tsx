@@ -1,6 +1,7 @@
 import Home from './pages/Home';
 import Companions from './pages/Companions';
 import Werewolf from './pages/Werewolf';
+import GameRoom from './pages/werewolf/GameRoom';
 import ScriptMurder from './pages/ScriptMurder';
 import Adventure from './pages/Adventure';
 import Rankings from './pages/Rankings';
@@ -30,6 +31,12 @@ const routes: RouteConfig[] = [
     name: '狼人杀',
     path: '/werewolf',
     element: <Werewolf />,
+    visible: false,
+  },
+  {
+    name: '狼人杀游戏',
+    path: '/werewolf/game',
+    element: <GameRoom />,
     visible: false,
   },
   {

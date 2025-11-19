@@ -1,119 +1,57 @@
 import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { ChatInterface } from '@/components/game/ChatInterface';
-import { useUser } from '@/contexts/UserContext';
-import { useToast } from '@/hooks/use-toast';
-import { companionApi, gameApi } from '@/db/api';
-import { aiService } from '@/services/ai';
-import { Users, Play, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import type { ChatMessage, AICompanion } from '@/types';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Slider } from '@/components/ui/slider';
+import { useToast } from '@/hooks/use-toast';
+import { werewolfApi } from '@/db/api';
+import { Users, Brain, Zap, Shield, Target, Plus, Play, BookOpen } from 'lucide-react';
+import type { WerewolfPersona, WerewolfGameConfig } from '@/types';
 
 export default function Werewolf() {
   const navigate = useNavigate();
-  const { user } = useUser();
   const { toast } = useToast();
-  const [gameStarted, setGameStarted] = useState(false);
-  const [selectedCompanion, setSelectedCompanion] = useState<AICompanion | null>(null);
-  const [companions, setCompanions] = useState<AICompanion[]>([]);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [gameMode, setGameMode] = useState<'pve' | 'pvp'>('pve');
+  const [selectedPlayerCount, setSelectedPlayerCount] = useState<6 | 9 | 12>(6);
+  const [gameConfig, setGameConfig] = useState<WerewolfGameConfig | null>(null);
+  const [personas, setPersonas] = useState<WerewolfPersona[]>([]);
+  const [selectedPersonas, setSelectedPersonas] = useState<WerewolfPersona[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [showCreatePersona, setShowCreatePersona] = useState(false);
+
+  // 新人设表单状态
+  const [newPersona, setNewPersona] = useState({
+    name: '',
+    description: '',
+    logical_level: 0.5,
+    emotional_level: 0.5,
+    aggressive_level: 0.5,
+    cautious_level: 0.5,
+    trust_level: 0.5,
+  });
 
   useEffect(() => {
-    loadCompanions();
-  }, []);
+    loadData();
+  }, [selectedPlayerCount]);
 
-  const loadCompanions = async () => {
-    const data = await companionApi.getAllCompanions();
-    setCompanions(data);
-    if (data.length > 0) {
-      setSelectedCompanion(data[0]);
-    }
-  };
-
-  const startGame = async () => {
-    if (!user || !selectedCompanion) {
-      toast({
-        title: '无法开始游戏',
-        description: '请先选择AI伴侣',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    try {
-      const session = await gameApi.createSession({
-        game_type: 'werewolf',
-        mode: gameMode,
-        host_user_id: user.id,
-        status: 'playing',
-        players: [{ id: user.id, nickname: user.nickname }],
-        ai_companions: [{ id: selectedCompanion.id, name: selectedCompanion.name }],
-        game_data: { round: 1, phase: 'night' },
-        started_at: new Date().toISOString(),
-      });
-
-      if (session) {
-        setGameStarted(true);
-        
-        const welcomeMessage: ChatMessage = {
-          id: crypto.randomUUID(),
-          role: 'assistant',
-          content: `欢迎来到狼人杀游戏！我是${selectedCompanion.name}，将作为你的AI伴侣陪你一起游戏。\n\n游戏即将开始，请准备好你的推理能力！`,
-          timestamp: new Date().toISOString(),
-          companion: selectedCompanion,
-        };
-        
-        setMessages([welcomeMessage]);
-        
-        toast({
-          title: '游戏开始',
-          description: '祝你游戏愉快！',
-        });
-      }
-    } catch (error) {
-      console.error('Failed to start game:', error);
-      toast({
-        title: '开始游戏失败',
-        description: '请稍后重试',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleSendMessage = async (content: string) => {
-    if (!selectedCompanion) return;
-
-    const userMessage: ChatMessage = {
-      id: crypto.randomUUID(),
-      role: 'user',
-      content,
-      timestamp: new Date().toISOString(),
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
+  const loadData = async () => {
     setIsLoading(true);
-
     try {
-      const response = await aiService.chat([...messages, userMessage], selectedCompanion);
-      
-      const aiMessage: ChatMessage = {
-        id: crypto.randomUUID(),
-        role: 'assistant',
-        content: response,
-        timestamp: new Date().toISOString(),
-        companion: selectedCompanion,
-      };
-
-      setMessages((prev) => [...prev, aiMessage]);
+      const [personasData, configData] = await Promise.all([
+        werewolfApi.getPublicPersonas(),
+        werewolfApi.getConfigByPlayerCount(selectedPlayerCount),
+      ]);
+      setPersonas(personasData);
+      setGameConfig(configData);
     } catch (error) {
-      console.error('Failed to get AI response:', error);
+      console.error('加载数据失败:', error);
       toast({
-        title: '消息发送失败',
-        description: '请稍后重试',
+        title: '加载失败',
+        description: '无法加载游戏数据，请刷新页面重试',
         variant: 'destructive',
       });
     } finally {
@@ -121,161 +59,375 @@ export default function Werewolf() {
     }
   };
 
-  if (!gameStarted) {
-    return (
-      <div className="min-h-screen py-8">
-        <div className="container mx-auto px-4">
-          <Button
-            variant="ghost"
-            onClick={() => navigate('/')}
-            className="mb-6"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            返回首页
-          </Button>
+  const handleSelectPersona = (persona: WerewolfPersona) => {
+    if (selectedPersonas.find(p => p.id === persona.id)) {
+      setSelectedPersonas(selectedPersonas.filter(p => p.id !== persona.id));
+    } else {
+      if (selectedPersonas.length < selectedPlayerCount - 1) {
+        setSelectedPersonas([...selectedPersonas, persona]);
+      } else {
+        toast({
+          title: '人设已满',
+          description: `最多选择 ${selectedPlayerCount - 1} 个AI人设`,
+          variant: 'destructive',
+        });
+      }
+    }
+  };
 
-          <div className="max-w-4xl mx-auto">
-            <div className="text-center mb-12">
-              <h1 className="text-4xl xl:text-5xl font-bold mb-4">
-                <span className="gradient-text">AI狼人杀</span>
-              </h1>
-              <p className="text-lg text-muted-foreground">
-                经典狼人杀游戏，与AI伴侣一起推理、投票、找出真相
-              </p>
-            </div>
+  const handleCreatePersona = async () => {
+    if (!newPersona.name.trim()) {
+      toast({
+        title: '请输入人设名称',
+        variant: 'destructive',
+      });
+      return;
+    }
 
-            <Card className="mb-8">
-              <CardHeader>
-                <CardTitle>选择游戏模式</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <button
-                    onClick={() => setGameMode('pve')}
-                    className={`p-6 rounded-xl border-2 transition-all ${
-                      gameMode === 'pve'
-                        ? 'border-primary bg-primary/5'
-                        : 'border-border hover:border-primary/50'
-                    }`}
-                  >
-                    <div className="text-4xl mb-3">🤖</div>
-                    <h3 className="text-xl font-bold mb-2">PVE模式</h3>
-                    <p className="text-sm text-muted-foreground">
-                      与AI玩家对战，适合练习和学习
-                    </p>
-                  </button>
-                  <button
-                    onClick={() => setGameMode('pvp')}
-                    className={`p-6 rounded-xl border-2 transition-all ${
-                      gameMode === 'pvp'
-                        ? 'border-primary bg-primary/5'
-                        : 'border-border hover:border-primary/50'
-                    }`}
-                  >
-                    <div className="text-4xl mb-3">👥</div>
-                    <h3 className="text-xl font-bold mb-2">PVP模式</h3>
-                    <p className="text-sm text-muted-foreground">
-                      真人+AI混合对战，更具挑战性
-                    </p>
-                  </button>
-                </div>
-              </CardContent>
-            </Card>
+    try {
+      const persona = await werewolfApi.createPersona({
+        name: newPersona.name,
+        type: 'custom',
+        description: newPersona.description,
+        personality_traits: {
+          logical_level: newPersona.logical_level,
+          emotional_level: newPersona.emotional_level,
+          aggressive_level: newPersona.aggressive_level,
+          cautious_level: newPersona.cautious_level,
+          trust_level: newPersona.trust_level,
+        },
+        speaking_style: {
+          speech_length: 'medium',
+          speech_frequency: 'medium',
+          logic_pattern: 'inductive',
+          emotion_expression: 'moderate',
+        },
+        behavior_patterns: {
+          voting_tendency: 'balanced',
+          strategy_style: 'adaptive',
+        },
+        is_public: false,
+      });
 
-            <Card className="mb-8">
-              <CardHeader>
-                <CardTitle>选择AI伴侣</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-                  {companions.map((companion) => (
-                    <button
-                      key={companion.id}
-                      onClick={() => setSelectedCompanion(companion)}
-                      className={`p-4 rounded-xl border-2 transition-all ${
-                        selectedCompanion?.id === companion.id
-                          ? 'border-primary bg-primary/5'
-                          : 'border-border hover:border-primary/50'
-                      }`}
-                    >
-                      <img
-                        src={companion.avatar_url || ''}
-                        alt={companion.name}
-                        className="w-16 h-16 rounded-full mx-auto mb-3"
-                      />
-                      <h3 className="font-bold mb-1">{companion.name}</h3>
-                      <p className="text-xs text-muted-foreground line-clamp-2">
-                        {companion.description}
-                      </p>
-                    </button>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+      if (persona) {
+        toast({
+          title: '创建成功',
+          description: '自定义人设已创建',
+        });
+        setShowCreatePersona(false);
+        setNewPersona({
+          name: '',
+          description: '',
+          logical_level: 0.5,
+          emotional_level: 0.5,
+          aggressive_level: 0.5,
+          cautious_level: 0.5,
+          trust_level: 0.5,
+        });
+        loadData();
+      }
+    } catch (error) {
+      console.error('创建人设失败:', error);
+      toast({
+        title: '创建失败',
+        description: '无法创建人设，请重试',
+        variant: 'destructive',
+      });
+    }
+  };
 
-            <div className="text-center">
-              <Button
-                size="lg"
-                onClick={startGame}
-                disabled={!selectedCompanion}
-                className="gradient-bg-primary border-0 text-lg px-12"
-              >
-                <Play className="w-5 h-5 mr-2" />
-                开始游戏
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const handleStartGame = () => {
+    if (selectedPersonas.length === 0) {
+      toast({
+        title: '请选择AI人设',
+        description: '至少选择一个AI人设才能开始游戏',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // 跳转到游戏房间页面
+    navigate('/werewolf/game', {
+      state: {
+        playerCount: selectedPlayerCount,
+        config: gameConfig,
+        personas: selectedPersonas,
+      },
+    });
+  };
+
+  const getPersonalityColor = (level: number) => {
+    if (level >= 0.7) return 'text-red-500';
+    if (level >= 0.4) return 'text-yellow-500';
+    return 'text-green-500';
+  };
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <div className="border-b bg-card">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setGameStarted(false)}
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                退出游戏
-              </Button>
-              <div className="flex items-center gap-2">
-                <Users className="w-5 h-5 text-muted-foreground" />
-                <span className="font-medium">狼人杀游戏</span>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <Badge variant="outline">{gameMode === 'pve' ? 'PVE模式' : 'PVP模式'}</Badge>
-              {selectedCompanion && (
-                <div className="flex items-center gap-2">
-                  <img
-                    src={selectedCompanion.avatar_url || ''}
-                    alt={selectedCompanion.name}
-                    className="w-8 h-8 rounded-full"
-                  />
-                  <span className="text-sm font-medium">{selectedCompanion.name}</span>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+    <div className="container mx-auto p-6 space-y-6">
+      {/* 页面标题 */}
+      <div className="text-center space-y-2">
+        <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+          AI狼人杀
+        </h1>
+        <p className="text-muted-foreground">
+          选择局数、配置AI人设，开始你的狼人杀之旅
+        </p>
       </div>
 
-      <div className="flex-1 container mx-auto px-4 py-6">
-        <div className="h-[calc(100vh-200px)] bg-card rounded-xl border">
-          <ChatInterface
-            messages={messages}
-            onSendMessage={handleSendMessage}
-            companion={selectedCompanion || undefined}
-            isLoading={isLoading}
-            placeholder="输入你的发言或行动..."
-          />
-        </div>
+      {/* 局数选择 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="w-5 h-5" />
+            选择局数
+          </CardTitle>
+          <CardDescription>不同局数有不同的角色配置</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {[6, 9, 12].map((count) => (
+              <Card
+                key={count}
+                className={`cursor-pointer transition-all hover:shadow-lg ${
+                  selectedPlayerCount === count
+                    ? 'border-primary shadow-md'
+                    : 'border-border'
+                }`}
+                onClick={() => setSelectedPlayerCount(count as 6 | 9 | 12)}
+              >
+                <CardHeader>
+                  <CardTitle className="text-2xl text-center">{count}人局</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {gameConfig && selectedPlayerCount === count && (
+                    <div className="text-sm space-y-1">
+                      <div className="flex justify-between">
+                        <span>狼人:</span>
+                        <Badge variant="destructive">{gameConfig.role_config.werewolf_count}</Badge>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>村民:</span>
+                        <Badge>{gameConfig.role_config.villager_count}</Badge>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>预言家:</span>
+                        <Badge variant="secondary">{gameConfig.role_config.seer_count}</Badge>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>女巫:</span>
+                        <Badge variant="secondary">{gameConfig.role_config.witch_count}</Badge>
+                      </div>
+                      {gameConfig.role_config.hunter_count > 0 && (
+                        <div className="flex justify-between">
+                          <span>猎人:</span>
+                          <Badge variant="secondary">{gameConfig.role_config.hunter_count}</Badge>
+                        </div>
+                      )}
+                      {gameConfig.role_config.guard_count > 0 && (
+                        <div className="flex justify-between">
+                          <span>守卫:</span>
+                          <Badge variant="secondary">{gameConfig.role_config.guard_count}</Badge>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* AI人设选择 */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Brain className="w-5 h-5" />
+                选择AI人设
+              </CardTitle>
+              <CardDescription>
+                已选择 {selectedPersonas.length}/{selectedPlayerCount - 1} 个AI人设
+              </CardDescription>
+            </div>
+            <Dialog open={showCreatePersona} onOpenChange={setShowCreatePersona}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Plus className="w-4 h-4 mr-2" />
+                  创建人设
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>创建自定义人设</DialogTitle>
+                  <DialogDescription>
+                    设置AI的性格特征和行为模式
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="persona-name">人设名称</Label>
+                    <Input
+                      id="persona-name"
+                      placeholder="例如：冷静分析师"
+                      value={newPersona.name}
+                      onChange={(e) => setNewPersona({ ...newPersona, name: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="persona-desc">人设描述</Label>
+                    <Input
+                      id="persona-desc"
+                      placeholder="描述这个人设的特点"
+                      value={newPersona.description}
+                      onChange={(e) => setNewPersona({ ...newPersona, description: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>逻辑性: {(newPersona.logical_level * 100).toFixed(0)}%</Label>
+                      <Slider
+                        value={[newPersona.logical_level]}
+                        onValueChange={([value]) => setNewPersona({ ...newPersona, logical_level: value })}
+                        max={1}
+                        step={0.1}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>情绪化: {(newPersona.emotional_level * 100).toFixed(0)}%</Label>
+                      <Slider
+                        value={[newPersona.emotional_level]}
+                        onValueChange={([value]) => setNewPersona({ ...newPersona, emotional_level: value })}
+                        max={1}
+                        step={0.1}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>激进度: {(newPersona.aggressive_level * 100).toFixed(0)}%</Label>
+                      <Slider
+                        value={[newPersona.aggressive_level]}
+                        onValueChange={([value]) => setNewPersona({ ...newPersona, aggressive_level: value })}
+                        max={1}
+                        step={0.1}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>谨慎度: {(newPersona.cautious_level * 100).toFixed(0)}%</Label>
+                      <Slider
+                        value={[newPersona.cautious_level]}
+                        onValueChange={([value]) => setNewPersona({ ...newPersona, cautious_level: value })}
+                        max={1}
+                        step={0.1}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>信任度: {(newPersona.trust_level * 100).toFixed(0)}%</Label>
+                      <Slider
+                        value={[newPersona.trust_level]}
+                        onValueChange={([value]) => setNewPersona({ ...newPersona, trust_level: value })}
+                        max={1}
+                        step={0.1}
+                      />
+                    </div>
+                  </div>
+                  <Button onClick={handleCreatePersona} className="w-full">
+                    创建人设
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Tabs defaultValue="preset">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="preset">预设人设</TabsTrigger>
+              <TabsTrigger value="custom">自定义人设</TabsTrigger>
+            </TabsList>
+            <TabsContent value="preset" className="space-y-4">
+              {isLoading ? (
+                <div className="text-center py-8 text-muted-foreground">加载中...</div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {personas.filter(p => p.type === 'preset').map((persona) => (
+                    <Card
+                      key={persona.id}
+                      className={`cursor-pointer transition-all hover:shadow-lg ${
+                        selectedPersonas.find(p => p.id === persona.id)
+                          ? 'border-primary shadow-md'
+                          : 'border-border'
+                      }`}
+                      onClick={() => handleSelectPersona(persona)}
+                    >
+                      <CardHeader>
+                        <CardTitle className="flex items-center justify-between">
+                          {persona.name}
+                          {selectedPersonas.find(p => p.id === persona.id) && (
+                            <Badge variant="default">已选</Badge>
+                          )}
+                        </CardTitle>
+                        <CardDescription>{persona.description}</CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-2">
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div className="flex items-center gap-1">
+                            <Brain className="w-4 h-4" />
+                            <span className={getPersonalityColor(persona.personality_traits.logical_level)}>
+                              逻辑 {(persona.personality_traits.logical_level * 100).toFixed(0)}%
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Zap className="w-4 h-4" />
+                            <span className={getPersonalityColor(persona.personality_traits.aggressive_level)}>
+                              激进 {(persona.personality_traits.aggressive_level * 100).toFixed(0)}%
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Shield className="w-4 h-4" />
+                            <span className={getPersonalityColor(persona.personality_traits.cautious_level)}>
+                              谨慎 {(persona.personality_traits.cautious_level * 100).toFixed(0)}%
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Target className="w-4 h-4" />
+                            <span className={getPersonalityColor(persona.personality_traits.trust_level)}>
+                              信任 {(persona.personality_traits.trust_level * 100).toFixed(0)}%
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between text-xs text-muted-foreground">
+                          <span>使用次数: {persona.usage_count}</span>
+                          <span>评分: {persona.rating.toFixed(1)}</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+            <TabsContent value="custom" className="space-y-4">
+              <div className="text-center py-8 text-muted-foreground">
+                <BookOpen className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p>暂无自定义人设</p>
+                <p className="text-sm">点击"创建人设"按钮创建你的第一个自定义人设</p>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
+
+      {/* 开始游戏按钮 */}
+      <div className="flex justify-center">
+        <Button
+          size="lg"
+          onClick={handleStartGame}
+          disabled={selectedPersonas.length === 0}
+          className="px-8"
+        >
+          <Play className="w-5 h-5 mr-2" />
+          开始游戏
+        </Button>
       </div>
     </div>
   );
