@@ -236,6 +236,12 @@ export default function GameRoom() {
 
       setPlayers(playersList);
 
+      // 输出所有玩家的角色分配（仅用于调试）
+      console.log('=== 所有玩家角色分配 ===');
+      playersList.forEach(player => {
+        console.log(`[${player.position}号] ${player.name}: ${ROLE_NAMES[player.role!]} (${player.role})`);
+      });
+
       // 角色卡片会在useEffect中自动显示
       console.log('角色分配完成，等待显示角色卡片');
 
@@ -969,6 +975,34 @@ ${userSpeeches.map((s, i) => `${i + 1}. [${s.phase === 'night' ? '夜晚' : s.ph
                     {userRole === 'werewolf' ? '🐺 狼人阵营' : '✨ 好人阵营'}
                   </Badge>
                 </div>
+
+                {/* 狼人队友信息 */}
+                {userRole === 'werewolf' && (
+                  <div className="w-full space-y-3 p-4 bg-destructive/10 rounded-lg border-2 border-destructive/30">
+                    <h4 className="text-center font-bold text-destructive flex items-center justify-center gap-2">
+                      <Users className="w-5 h-5" />
+                      你的狼人队友
+                    </h4>
+                    <div className="space-y-2">
+                      {players
+                        .filter(p => p.role === 'werewolf' && p.id !== 'user')
+                        .map(teammate => (
+                          <div key={teammate.id} className="flex items-center gap-2 p-2 bg-background rounded">
+                            <span className="text-2xl">🐺</span>
+                            <div className="flex-1">
+                              <p className="font-medium">[{teammate.position}号] {teammate.name}</p>
+                              {teammate.persona && (
+                                <p className="text-xs text-muted-foreground">{teammate.persona.description}</p>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      {players.filter(p => p.role === 'werewolf' && p.id !== 'user').length === 0 && (
+                        <p className="text-center text-sm text-muted-foreground">你是唯一的狼人</p>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 <Button onClick={() => setShowRoleCard(false)} className="w-full" size="lg">
                   我知道了，开始游戏
