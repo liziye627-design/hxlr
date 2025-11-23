@@ -143,6 +143,7 @@ export default function GameRoom() {
 
       // 用户的角色（第一个）
       const userAssignedRole = assignedRoles[0];
+      console.log('用户角色分配:', userAssignedRole);
       setUserRole(userAssignedRole);
 
       // 初始化玩家列表
@@ -168,10 +169,9 @@ export default function GameRoom() {
 
       setPlayers(playersList);
 
-      // 显示角色卡片
-      setTimeout(() => {
-        setShowRoleCard(true);
-      }, 1000);
+      // 显示角色卡片 - 直接显示，不使用setTimeout
+      console.log('准备显示角色卡片');
+      setShowRoleCard(true);
 
       // 添加系统消息
       const systemMessage: WerewolfSpeechRecord = {
@@ -599,24 +599,53 @@ ${userSpeeches.map((s, i) => `${i + 1}. [${s.phase === 'night' ? '夜晚' : s.ph
             </CardTitle>
             <CardDescription>{playerCount}人局</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
+            {/* 查看角色按钮 */}
+            {userRole && (
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={() => setShowRoleCard(true)}
+              >
+                <Brain className="w-4 h-4 mr-2" />
+                查看我的角色
+              </Button>
+            )}
+            
             <div className="space-y-2">
               {players.map((player) => (
                 <div
                   key={player.id}
                   className={`flex items-center justify-between p-3 rounded-lg border ${
                     player.is_alive ? 'bg-background' : 'bg-muted opacity-50'
-                  }`}
+                  } ${player.type === 'user' ? 'border-primary border-2' : ''}`}
                 >
                   <div className="flex items-center gap-2">
                     <Badge variant={player.type === 'user' ? 'default' : 'secondary'}>
                       {player.position}号
                     </Badge>
                     <span className="font-medium">{player.name}</span>
+                    {player.type === 'user' && player.role && (
+                      <Badge variant="outline" className="ml-2">
+                        {ROLE_NAMES[player.role]}
+                      </Badge>
+                    )}
                   </div>
-                  {!player.is_alive && (
-                    <Badge variant="destructive">已出局</Badge>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {player.type === 'user' && player.role && (
+                      <span className="text-2xl">
+                        {player.role === 'werewolf' && '🐺'}
+                        {player.role === 'villager' && '👨'}
+                        {player.role === 'seer' && '🔮'}
+                        {player.role === 'witch' && '🧙'}
+                        {player.role === 'hunter' && '🏹'}
+                        {player.role === 'guard' && '🛡️'}
+                      </span>
+                    )}
+                    {!player.is_alive && (
+                      <Badge variant="destructive">已出局</Badge>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -719,7 +748,7 @@ ${userSpeeches.map((s, i) => `${i + 1}. [${s.phase === 'night' ? '夜晚' : s.ph
       </div>
 
       {/* 角色卡片对话框 */}
-      <Dialog open={showRoleCard} onOpenChange={setShowRoleCard}>
+      <Dialog open={showRoleCard && userRole !== null} onOpenChange={setShowRoleCard}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-center text-2xl">你的身份</DialogTitle>
@@ -728,27 +757,28 @@ ${userSpeeches.map((s, i) => `${i + 1}. [${s.phase === 'night' ? '夜晚' : s.ph
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col items-center justify-center space-y-6 py-6">
-            {userRole && (
+            {userRole ? (
               <>
                 {/* 角色图片 */}
-                <div className="relative w-48 h-64 rounded-lg overflow-hidden shadow-2xl">
-                  <img
-                    src={ROLE_IMAGES[userRole]}
-                    alt={ROLE_NAMES[userRole]}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      // 如果图片加载失败，显示占位符
-                      (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="300"%3E%3Crect fill="%23333" width="200" height="300"/%3E%3Ctext fill="%23fff" font-size="24" x="50%25" y="50%25" text-anchor="middle" dominant-baseline="middle"%3E' + ROLE_NAMES[userRole] + '%3C/text%3E%3C/svg%3E';
-                    }}
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end justify-center pb-4">
-                    <h3 className="text-white text-3xl font-bold">{ROLE_NAMES[userRole]}</h3>
+                <div className="relative w-48 h-64 rounded-lg overflow-hidden shadow-2xl border-4 border-primary">
+                  <div className="w-full h-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+                    <div className="text-center space-y-4">
+                      <div className="text-8xl">
+                        {userRole === 'werewolf' && '🐺'}
+                        {userRole === 'villager' && '👨'}
+                        {userRole === 'seer' && '🔮'}
+                        {userRole === 'witch' && '🧙'}
+                        {userRole === 'hunter' && '🏹'}
+                        {userRole === 'guard' && '🛡️'}
+                      </div>
+                      <h3 className="text-4xl font-bold text-primary">{ROLE_NAMES[userRole]}</h3>
+                    </div>
                   </div>
                 </div>
 
                 {/* 角色说明 */}
-                <div className="text-center space-y-2">
-                  <p className="text-sm text-muted-foreground">
+                <div className="text-center space-y-3">
+                  <p className="text-base">
                     {userRole === 'werewolf' && '你是狼人阵营，夜晚可以与其他狼人商议击杀目标'}
                     {userRole === 'villager' && '你是好人阵营的平民，白天通过发言和投票找出狼人'}
                     {userRole === 'seer' && '你是预言家，每晚可以查验一名玩家的身份'}
@@ -756,15 +786,19 @@ ${userSpeeches.map((s, i) => `${i + 1}. [${s.phase === 'night' ? '夜晚' : s.ph
                     {userRole === 'hunter' && '你是猎人，出局时可以开枪带走一名玩家'}
                     {userRole === 'guard' && '你是守卫，每晚可以守护一名玩家'}
                   </p>
-                  <Badge variant={userRole === 'werewolf' ? 'destructive' : 'default'} className="text-lg px-4 py-1">
-                    {userRole === 'werewolf' ? '狼人阵营' : '好人阵营'}
+                  <Badge variant={userRole === 'werewolf' ? 'destructive' : 'default'} className="text-lg px-6 py-2">
+                    {userRole === 'werewolf' ? '🐺 狼人阵营' : '✨ 好人阵营'}
                   </Badge>
                 </div>
 
-                <Button onClick={() => setShowRoleCard(false)} className="w-full">
+                <Button onClick={() => setShowRoleCard(false)} className="w-full" size="lg">
                   我知道了，开始游戏
                 </Button>
               </>
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">正在分配角色...</p>
+              </div>
             )}
           </div>
         </DialogContent>
