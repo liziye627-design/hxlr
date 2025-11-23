@@ -9,14 +9,39 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { useToast } from '@/hooks/use-toast';
 import { werewolfApi, gameApi } from '@/db/api';
 import { aiService } from '@/services/ai';
-import { Send, Users, Moon, Sun, Vote, Brain, ArrowLeft, Download } from 'lucide-react';
+import { Send, Users, Moon, Sun, Vote, Brain, ArrowLeft, Download, Mic, MicOff } from 'lucide-react';
 import type { WerewolfPersona, WerewolfGameConfig, WerewolfPlayer, WerewolfSpeechRecord } from '@/types';
+
+// 角色类型定义
+type RoleType = 'werewolf' | 'villager' | 'seer' | 'witch' | 'hunter' | 'guard';
+
+// 角色中文名称映射
+const ROLE_NAMES: Record<RoleType, string> = {
+  werewolf: '狼人',
+  villager: '平民',
+  seer: '预言家',
+  witch: '女巫',
+  hunter: '猎人',
+  guard: '守卫',
+};
+
+// 角色图片映射（使用用户提供的图片URL）
+const ROLE_IMAGES: Record<RoleType, string> = {
+  werewolf: 'https://placeholder-for-werewolf-image.jpg', // 将替换为实际图片
+  villager: 'https://placeholder-for-villager-image.jpg',
+  seer: 'https://placeholder-for-seer-image.jpg',
+  witch: 'https://placeholder-for-witch-image.jpg',
+  hunter: 'https://placeholder-for-hunter-image.jpg',
+  guard: 'https://placeholder-for-guard-image.jpg',
+};
 
 export default function GameRoom() {
   const location = useLocation();
   const navigate = useNavigate();
   const { toast } = useToast();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
 
   const { playerCount, config, personas } = location.state as {
     playerCount: 6 | 9 | 12;
@@ -26,6 +51,8 @@ export default function GameRoom() {
 
   const [sessionId, setSessionId] = useState<string>('');
   const [players, setPlayers] = useState<WerewolfPlayer[]>([]);
+  const [userRole, setUserRole] = useState<RoleType | null>(null);
+  const [showRoleCard, setShowRoleCard] = useState(false);
   const [currentRound, setCurrentRound] = useState(1);
   const [currentPhase, setCurrentPhase] = useState<'night' | 'day' | 'vote'>('night');
   const [speeches, setSpeeches] = useState<WerewolfSpeechRecord[]>([]);
@@ -33,7 +60,8 @@ export default function GameRoom() {
   const [isAIThinking, setIsAIThinking] = useState(false);
   const [gameStatus, setGameStatus] = useState<'playing' | 'finished'>('playing');
   const [showLearningDialog, setShowLearningDialog] = useState(false);
-  const [isRecording, setIsRecording] = useState(true);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isVoiceSupported, setIsVoiceSupported] = useState(false);
 
   useEffect(() => {
     initializeGame();
