@@ -65,6 +65,7 @@ export default function GameRoom() {
 
   useEffect(() => {
     initializeGame();
+    checkVoiceSupport();
   }, []);
 
   useEffect(() => {
@@ -72,6 +73,52 @@ export default function GameRoom() {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [speeches]);
+
+  // 检查浏览器是否支持语音识别
+  const checkVoiceSupport = () => {
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      setIsVoiceSupported(true);
+    }
+  };
+
+  // 随机分配角色
+  const assignRoles = (playerCount: number, config: WerewolfGameConfig): RoleType[] => {
+    const roles: RoleType[] = [];
+    const roleConfig = config.role_config as Record<string, number>;
+
+    // 添加狼人
+    for (let i = 0; i < (roleConfig.werewolf || 0); i++) {
+      roles.push('werewolf');
+    }
+
+    // 添加村民
+    for (let i = 0; i < (roleConfig.villager || 0); i++) {
+      roles.push('villager');
+    }
+
+    // 添加预言家
+    if (roleConfig.seer > 0) {
+      roles.push('seer');
+    }
+
+    // 添加女巫
+    if (roleConfig.witch > 0) {
+      roles.push('witch');
+    }
+
+    // 添加猎人
+    if (roleConfig.hunter > 0) {
+      roles.push('hunter');
+    }
+
+    // 添加守卫
+    if (roleConfig.guard > 0) {
+      roles.push('guard');
+    }
+
+    // 打乱角色数组
+    return roles.sort(() => Math.random() - 0.5);
+  };
 
   const initializeGame = async () => {
     try {
@@ -91,6 +138,13 @@ export default function GameRoom() {
 
       setSessionId(session.id);
 
+      // 随机分配角色
+      const assignedRoles = assignRoles(playerCount, config);
+
+      // 用户的角色（第一个）
+      const userAssignedRole = assignedRoles[0];
+      setUserRole(userAssignedRole);
+
       // 初始化玩家列表
       const playersList: WerewolfPlayer[] = [
         {
@@ -99,6 +153,7 @@ export default function GameRoom() {
           type: 'user',
           is_alive: true,
           position: 1,
+          role: userAssignedRole,
         },
         ...personas.map((persona, index) => ({
           id: persona.id,
@@ -107,10 +162,16 @@ export default function GameRoom() {
           persona,
           is_alive: true,
           position: index + 2,
+          role: assignedRoles[index + 1],
         })),
       ];
 
       setPlayers(playersList);
+
+      // 显示角色卡片
+      setTimeout(() => {
+        setShowRoleCard(true);
+      }, 1000);
 
       // 添加系统消息
       const systemMessage: WerewolfSpeechRecord = {
@@ -143,6 +204,72 @@ export default function GameRoom() {
         variant: 'destructive',
       });
     }
+  };
+
+  // 开始语音识别
+  const startVoiceRecognition = () => {
+    if (!isVoiceSupported) {
+      toast({
+        title: '不支持语音识别',
+        description: '您的浏览器不支持语音识别功能，请使用Chrome浏览器',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+      const recognition = new SpeechRecognition();
+      
+      recognition.lang = 'zh-CN';
+      recognition.continuous = false;
+      recognition.interimResults = false;
+
+      recognition.onstart = () => {
+        setIsRecording(true);
+        toast({
+          title: '开始录音',
+          description: '请说话...',
+        });
+      };
+
+      recognition.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        setUserInput(prev => prev + transcript);
+        toast({
+          title: '识别成功',
+          description: `识别内容: ${transcript}`,
+        });
+      };
+
+      recognition.onerror = (event: any) => {
+        console.error('语音识别错误:', event.error);
+        setIsRecording(false);
+        toast({
+          title: '识别失败',
+          description: '语音识别出错，请重试',
+          variant: 'destructive',
+        });
+      };
+
+      recognition.onend = () => {
+        setIsRecording(false);
+      };
+
+      recognition.start();
+    } catch (error) {
+      console.error('启动语音识别失败:', error);
+      toast({
+        title: '启动失败',
+        description: '无法启动语音识别',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // 停止语音识别
+  const stopVoiceRecognition = () => {
+    setIsRecording(false);
   };
 
   const handleSendMessage = async () => {
@@ -545,7 +672,7 @@ ${userSpeeches.map((s, i) => `${i + 1}. [${s.phase === 'night' ? '夜晚' : s.ph
             {/* 输入区域 */}
             <div className="space-y-2">
               <Textarea
-                placeholder="输入你的发言..."
+                placeholder="输入你的发言，或点击麦克风使用语音输入..."
                 value={userInput}
                 onChange={(e) => setUserInput(e.target.value)}
                 onKeyDown={(e) => {
@@ -557,9 +684,30 @@ ${userSpeeches.map((s, i) => `${i + 1}. [${s.phase === 'night' ? '夜晚' : s.ph
                 rows={3}
               />
               <div className="flex items-center justify-between">
-                <Button variant="outline" onClick={handleNextPhase}>
-                  进入下一阶段
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" onClick={handleNextPhase}>
+                    进入下一阶段
+                  </Button>
+                  {isVoiceSupported && (
+                    <Button
+                      variant={isRecording ? 'destructive' : 'outline'}
+                      onClick={isRecording ? stopVoiceRecognition : startVoiceRecognition}
+                      disabled={isAIThinking}
+                    >
+                      {isRecording ? (
+                        <>
+                          <MicOff className="w-4 h-4 mr-2" />
+                          停止录音
+                        </>
+                      ) : (
+                        <>
+                          <Mic className="w-4 h-4 mr-2" />
+                          语音输入
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </div>
                 <Button onClick={handleSendMessage} disabled={!userInput.trim() || isAIThinking}>
                   <Send className="w-4 h-4 mr-2" />
                   发送
@@ -569,6 +717,58 @@ ${userSpeeches.map((s, i) => `${i + 1}. [${s.phase === 'night' ? '夜晚' : s.ph
           </CardContent>
         </Card>
       </div>
+
+      {/* 角色卡片对话框 */}
+      <Dialog open={showRoleCard} onOpenChange={setShowRoleCard}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-center text-2xl">你的身份</DialogTitle>
+            <DialogDescription className="text-center">
+              请记住你的角色，不要告诉其他人
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center justify-center space-y-6 py-6">
+            {userRole && (
+              <>
+                {/* 角色图片 */}
+                <div className="relative w-48 h-64 rounded-lg overflow-hidden shadow-2xl">
+                  <img
+                    src={ROLE_IMAGES[userRole]}
+                    alt={ROLE_NAMES[userRole]}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      // 如果图片加载失败，显示占位符
+                      (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="300"%3E%3Crect fill="%23333" width="200" height="300"/%3E%3Ctext fill="%23fff" font-size="24" x="50%25" y="50%25" text-anchor="middle" dominant-baseline="middle"%3E' + ROLE_NAMES[userRole] + '%3C/text%3E%3C/svg%3E';
+                    }}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end justify-center pb-4">
+                    <h3 className="text-white text-3xl font-bold">{ROLE_NAMES[userRole]}</h3>
+                  </div>
+                </div>
+
+                {/* 角色说明 */}
+                <div className="text-center space-y-2">
+                  <p className="text-sm text-muted-foreground">
+                    {userRole === 'werewolf' && '你是狼人阵营，夜晚可以与其他狼人商议击杀目标'}
+                    {userRole === 'villager' && '你是好人阵营的平民，白天通过发言和投票找出狼人'}
+                    {userRole === 'seer' && '你是预言家，每晚可以查验一名玩家的身份'}
+                    {userRole === 'witch' && '你是女巫，拥有一瓶解药和一瓶毒药'}
+                    {userRole === 'hunter' && '你是猎人，出局时可以开枪带走一名玩家'}
+                    {userRole === 'guard' && '你是守卫，每晚可以守护一名玩家'}
+                  </p>
+                  <Badge variant={userRole === 'werewolf' ? 'destructive' : 'default'} className="text-lg px-4 py-1">
+                    {userRole === 'werewolf' ? '狼人阵营' : '好人阵营'}
+                  </Badge>
+                </div>
+
+                <Button onClick={() => setShowRoleCard(false)} className="w-full">
+                  我知道了，开始游戏
+                </Button>
+              </>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* 人设学习对话框 */}
       <Dialog open={showLearningDialog} onOpenChange={setShowLearningDialog}>
