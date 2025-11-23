@@ -75,6 +75,15 @@ export default function GameRoom() {
     checkVoiceSupport();
   }, []);
 
+  // 当userRole设置后，自动显示角色卡片
+  useEffect(() => {
+    if (userRole !== null) {
+      console.log('检测到角色已分配:', userRole);
+      console.log('显示角色卡片');
+      setShowRoleCard(true);
+    }
+  }, [userRole]);
+
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -176,9 +185,8 @@ export default function GameRoom() {
 
       setPlayers(playersList);
 
-      // 显示角色卡片 - 直接显示，不使用setTimeout
-      console.log('准备显示角色卡片');
-      setShowRoleCard(true);
+      // 角色卡片会在useEffect中自动显示
+      console.log('角色分配完成，等待显示角色卡片');
 
       // 添加系统消息
       const systemMessage: WerewolfSpeechRecord = {
@@ -868,7 +876,7 @@ ${userSpeeches.map((s, i) => `${i + 1}. [${s.phase === 'night' ? '夜晚' : s.ph
       </div>
 
       {/* 角色卡片对话框 */}
-      <Dialog open={showRoleCard && userRole !== null} onOpenChange={setShowRoleCard}>
+      <Dialog open={showRoleCard} onOpenChange={setShowRoleCard}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-center text-2xl">你的身份</DialogTitle>
