@@ -146,6 +146,21 @@ export default function Werewolf() {
       return;
     }
 
+    console.log('=== 开始游戏 ===');
+    console.log('选择的人数:', selectedPlayerCount);
+    console.log('游戏配置:', gameConfig);
+    console.log('选择的人设:', selectedPersonas);
+
+    if (!gameConfig) {
+      console.error('错误：游戏配置为空！');
+      toast({
+        title: '配置错误',
+        description: '游戏配置加载失败，请刷新页面重试',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     // 跳转到游戏房间页面
     navigate('/werewolf/game', {
       state: {

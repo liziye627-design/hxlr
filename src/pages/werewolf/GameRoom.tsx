@@ -102,6 +102,10 @@ export default function GameRoom() {
     const roles: RoleType[] = [];
     const roleConfig = config.role_config as Record<string, number>;
 
+    console.log('=== 开始分配角色 ===');
+    console.log('玩家数量:', playerCount);
+    console.log('角色配置:', roleConfig);
+
     // 添加狼人
     for (let i = 0; i < (roleConfig.werewolf || 0); i++) {
       roles.push('werewolf');
@@ -132,12 +136,22 @@ export default function GameRoom() {
       roles.push('guard');
     }
 
+    console.log('分配的角色数组:', roles);
+    console.log('角色数量:', roles.length);
+
     // 打乱角色数组
-    return roles.sort(() => Math.random() - 0.5);
+    const shuffled = roles.sort(() => Math.random() - 0.5);
+    console.log('打乱后的角色:', shuffled);
+    return shuffled;
   };
 
   const initializeGame = async () => {
     try {
+      console.log('=== 初始化游戏 ===');
+      console.log('传入的config:', config);
+      console.log('传入的playerCount:', playerCount);
+      console.log('传入的personas:', personas);
+
       // 创建游戏会话
       const session = await gameApi.createSession({
         game_type: 'werewolf',
@@ -152,6 +166,7 @@ export default function GameRoom() {
         throw new Error('创建游戏会话失败');
       }
 
+      console.log('游戏会话创建成功:', session.id);
       setSessionId(session.id);
 
       // 随机分配角色
@@ -159,8 +174,24 @@ export default function GameRoom() {
 
       // 用户的角色（第一个）
       const userAssignedRole = assignedRoles[0];
-      console.log('用户角色分配:', userAssignedRole);
+      console.log('=== 用户角色分配 ===');
+      console.log('用户角色:', userAssignedRole);
+      console.log('用户角色类型:', typeof userAssignedRole);
+      console.log('是否为undefined:', userAssignedRole === undefined);
+      console.log('是否为null:', userAssignedRole === null);
+      
+      if (!userAssignedRole) {
+        console.error('错误：用户角色为空！');
+        toast({
+          title: '角色分配失败',
+          description: '无法分配角色，请检查游戏配置',
+          variant: 'destructive',
+        });
+        return;
+      }
+      
       setUserRole(userAssignedRole);
+      console.log('已调用setUserRole，等待状态更新...');
 
       // 初始化玩家列表
       const playersList: WerewolfPlayer[] = [
