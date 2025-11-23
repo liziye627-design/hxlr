@@ -106,38 +106,58 @@ export default function GameRoom() {
     console.log('玩家数量:', playerCount);
     console.log('角色配置:', roleConfig);
 
-    // 添加狼人
-    for (let i = 0; i < (roleConfig.werewolf || 0); i++) {
+    // 添加狼人（支持两种字段名）
+    const werewolfCount = roleConfig.werewolf_count || roleConfig.werewolf || 0;
+    for (let i = 0; i < werewolfCount; i++) {
       roles.push('werewolf');
     }
 
     // 添加村民
-    for (let i = 0; i < (roleConfig.villager || 0); i++) {
+    const villagerCount = roleConfig.villager_count || roleConfig.villager || 0;
+    for (let i = 0; i < villagerCount; i++) {
       roles.push('villager');
     }
 
     // 添加预言家
-    if (roleConfig.seer > 0) {
+    const seerCount = roleConfig.seer_count || roleConfig.seer || 0;
+    if (seerCount > 0) {
       roles.push('seer');
     }
 
     // 添加女巫
-    if (roleConfig.witch > 0) {
+    const witchCount = roleConfig.witch_count || roleConfig.witch || 0;
+    if (witchCount > 0) {
       roles.push('witch');
     }
 
     // 添加猎人
-    if (roleConfig.hunter > 0) {
+    const hunterCount = roleConfig.hunter_count || roleConfig.hunter || 0;
+    if (hunterCount > 0) {
       roles.push('hunter');
     }
 
     // 添加守卫
-    if (roleConfig.guard > 0) {
+    const guardCount = roleConfig.guard_count || roleConfig.guard || 0;
+    if (guardCount > 0) {
       roles.push('guard');
     }
 
     console.log('分配的角色数组:', roles);
     console.log('角色数量:', roles.length);
+
+    // 验证角色数量
+    if (roles.length !== playerCount) {
+      console.error(`错误：角色数量(${roles.length})不等于玩家数量(${playerCount})`);
+      toast({
+        title: '角色配置错误',
+        description: `角色数量(${roles.length})不等于玩家数量(${playerCount})`,
+        variant: 'destructive',
+      });
+      // 补充平民到正确数量
+      while (roles.length < playerCount) {
+        roles.push('villager');
+      }
+    }
 
     // 打乱角色数组
     const shuffled = roles.sort(() => Math.random() - 0.5);
