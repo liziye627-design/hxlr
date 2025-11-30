@@ -1,15 +1,27 @@
-import { useEffect, useState } from 'react';
-import { GameCard } from '@/components/game/GameCard';
+import { useEffect, useState, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Sparkles, Trophy, Users, Zap } from 'lucide-react';
+import { Sparkles, Users, ScrollText, Binary, ArrowRight, ChevronDown } from 'lucide-react';
 import { useUser } from '@/contexts/UserContext';
 import { companionApi } from '@/db/api';
 import type { AICompanion } from '@/types';
+import { motion } from 'framer-motion';
+
+// Full Screen Section Component
+function FullScreenSection({ children, className, id }: { children: React.ReactNode; className?: string; id?: string }) {
+  return (
+    <section id={id} className={`h-screen w-full snap-start relative flex items-center justify-center overflow-hidden ${className}`}>
+      {children}
+    </section>
+  );
+}
 
 export default function Home() {
-  const { user, isVIP } = useUser();
+  const { user } = useUser();
   const [companions, setCompanions] = useState<AICompanion[]>([]);
+  const [activeSection, setActiveSection] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadCompanions();
@@ -17,238 +29,270 @@ export default function Home() {
 
   const loadCompanions = async () => {
     const data = await companionApi.getAllCompanions();
-    setCompanions(data.slice(0, 3));
+    setCompanions(data.slice(0, 4));
+  };
+
+  const handleScroll = () => {
+    if (containerRef.current) {
+      const scrollPosition = containerRef.current.scrollTop;
+      const windowHeight = window.innerHeight;
+      const currentSection = Math.round(scrollPosition / windowHeight);
+      setActiveSection(currentSection);
+    }
+  };
+
+  const scrollToSection = (index: number) => {
+    if (containerRef.current) {
+      containerRef.current.scrollTo({
+        top: index * window.innerHeight,
+        behavior: 'smooth'
+      });
+    }
   };
 
   return (
-    <div className="min-h-screen">
-      {/* Hero Section */}
-      <section className="relative overflow-hidden gradient-bg-hero py-20">
-        <div className="container mx-auto px-4">
-          <div className="max-w-4xl mx-auto text-center">
-            <Badge className="mb-4 gradient-bg-primary border-0 text-lg px-4 py-2">
-              <Sparkles className="w-4 h-4 mr-2" />
-              次元阅关
+    <div
+      ref={containerRef}
+      onScroll={handleScroll}
+      className="h-screen w-full bg-[#030014] text-white overflow-y-scroll snap-y snap-mandatory scroll-smooth no-scrollbar"
+    >
+      {/* Floating Navigation Dots */}
+      <div className="fixed right-8 top-1/2 -translate-y-1/2 z-50 flex flex-col gap-4">
+        {[0, 1, 2, 3, 4].map((index) => (
+          <button
+            key={index}
+            onClick={() => scrollToSection(index)}
+            className={`w-3 h-3 rounded-full transition-all duration-300 ${activeSection === index
+              ? 'bg-white scale-125 shadow-[0_0_10px_rgba(255,255,255,0.8)]'
+              : 'bg-white/20 hover:bg-white/50'
+              }`}
+          />
+        ))}
+      </div>
+
+      {/* Section 1: Hero Portal */}
+      <FullScreenSection className="bg-[#030014]">
+        {/* Background Effects */}
+        <div className="absolute inset-0">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[60vw] h-[60vw] bg-purple-600/20 rounded-full blur-[120px] animate-pulse-slow" />
+          <div className="absolute inset-0 bg-[url('/grid.svg')] bg-center opacity-20" />
+        </div>
+
+        <div className="container relative z-10 text-center px-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 1 }}
+          >
+            <Badge className="mb-8 bg-white/5 text-white border-white/10 px-6 py-2 text-base backdrop-blur-md rounded-full">
+              <Sparkles className="w-4 h-4 mr-2 text-yellow-400" />
+              次世代 AI 游戏平台
             </Badge>
-            <h1 className="text-5xl xl:text-6xl font-bold mb-6">
-              <span className="gradient-text">AI游戏伴侣</span>
-              <br />
-              随时开启冒险之旅
+
+            <h1 className="text-7xl md:text-9xl font-bold tracking-tighter mb-8 bg-clip-text text-transparent bg-gradient-to-b from-white via-white to-white/30">
+              NEXUS
             </h1>
-            <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-              与AI伴侣一起体验狼人杀、剧本杀、数字冒险等多种游戏模式
-              <br />
-              无需等待，秒速配齐，随时开局
+
+            <p className="text-2xl md:text-3xl text-gray-400 mb-12 font-light tracking-wide">
+              当 AI 遇见无限想象
             </p>
-            <div className="flex flex-wrap gap-4 justify-center">
-              <Button size="lg" className="gradient-bg-primary border-0 text-lg px-8 hover:opacity-90">
-                <Zap className="w-5 h-5 mr-2" />
-                立即开始
-              </Button>
-              <Button size="lg" variant="outline" className="text-lg px-8">
-                <Users className="w-5 h-5 mr-2" />
-                了解更多
-              </Button>
-            </div>
-          </div>
+
+            <motion.div
+              animate={{ y: [0, 10, 0] }}
+              transition={{ duration: 2, repeat: Infinity }}
+              className="absolute bottom-12 left-1/2 -translate-x-1/2 cursor-pointer"
+              onClick={() => scrollToSection(1)}
+            >
+              <div className="flex flex-col items-center gap-2 text-white/50 hover:text-white transition-colors">
+                <span className="text-sm uppercase tracking-widest">探索世界</span>
+                <ChevronDown className="w-6 h-6" />
+              </div>
+            </motion.div>
+          </motion.div>
         </div>
-        
-        {/* Floating Elements */}
-        <div className="absolute top-20 left-10 w-20 h-20 bg-primary/20 rounded-full blur-3xl animate-float" />
-        <div className="absolute bottom-20 right-10 w-32 h-32 bg-secondary/20 rounded-full blur-3xl animate-float" style={{ animationDelay: '1s' }} />
-      </section>
+      </FullScreenSection>
 
-      {/* User Stats */}
-      {user && (
-        <section className="py-8 border-b">
-          <div className="container mx-auto px-4">
-            <div className="flex flex-wrap gap-6 justify-center">
-              <div className="flex items-center gap-3 px-6 py-3 bg-card rounded-xl border">
-                <Trophy className="w-6 h-6 text-primary" />
-                <div>
-                  <p className="text-sm text-muted-foreground">等级</p>
-                  <p className="text-xl font-bold">Lv.{user.level}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 px-6 py-3 bg-card rounded-xl border">
-                <Sparkles className="w-6 h-6 text-accent" />
-                <div>
-                  <p className="text-sm text-muted-foreground">经验值</p>
-                  <p className="text-xl font-bold">{user.experience}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 px-6 py-3 bg-card rounded-xl border">
-                <Zap className="w-6 h-6 text-secondary" />
-                <div>
-                  <p className="text-sm text-muted-foreground">游戏币</p>
-                  <p className="text-xl font-bold">{user.coins}</p>
-                </div>
-              </div>
-              {isVIP && (
-                <div className="flex items-center gap-3 px-6 py-3 gradient-bg-primary rounded-xl">
-                  <Sparkles className="w-6 h-6 text-primary-foreground" />
-                  <div className="text-primary-foreground">
-                    <p className="text-sm">VIP会员</p>
-                    <p className="text-xl font-bold">已激活</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* Game Modes */}
-      <section className="py-16">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl xl:text-4xl font-bold mb-4">
-              <span className="gradient-text">游戏模式</span>
-            </h2>
-            <p className="text-lg text-muted-foreground">
-              多种游戏模式，总有一款适合你
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            <GameCard
-              id="werewolf"
-              title="AI狼人杀"
-              description="经典狼人杀游戏，与AI伴侣一起推理、投票、找出真相"
-              image="https://images.unsplash.com/photo-1511512578047-dfb367046420?w=400"
-              players="8-12人"
-              duration="20-30分钟"
-              difficulty="中等"
-              link="/werewolf"
-            />
-            <GameCard
-              id="script-murder"
-              title="AI剧本杀"
-              description="沉浸式剧本体验，AI主持引导，多种故事等你探索"
-              image="https://images.unsplash.com/photo-1509248961158-e54f6934749c?w=400"
-              players="2-6人"
-              duration="30-60分钟"
-              difficulty="简单-困难"
-              link="/script-murder"
-            />
-            <GameCard
-              id="adventure"
-              title="数字冒险"
-              description="文本冒险游戏，通过对话推动故事发展，体验不同结局"
-              image="https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?w=400"
-              players="1-4人"
-              duration="15-45分钟"
-              difficulty="简单"
-              link="/adventure"
-            />
-          </div>
+      {/* Section 2: Werewolf World */}
+      <FullScreenSection className="relative">
+        <div className="absolute inset-0">
+          <img
+            src="/images/werewolf-bg-v2.png"
+            alt="Werewolf"
+            className="w-full h-full object-cover opacity-40"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#030014] via-[#030014]/80 to-transparent" />
         </div>
-      </section>
 
-      {/* AI Companions Preview */}
-      <section className="py-16 bg-muted/30">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl xl:text-4xl font-bold mb-4">
-              <span className="gradient-text">AI伴侣</span>
-            </h2>
-            <p className="text-lg text-muted-foreground">
-              不同性格的AI伴侣，陪你一起游戏
+        <div className="container relative z-10 px-4 grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+          <motion.div
+            initial={{ opacity: 0, x: -50 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.8 }}
+            className="space-y-8"
+          >
+            <div className="flex items-center gap-4">
+              <div className="p-4 rounded-2xl bg-purple-600/20 text-purple-400 backdrop-blur-xl border border-purple-500/30">
+                <Users className="w-12 h-12" />
+              </div>
+              <h2 className="text-5xl md:text-7xl font-bold text-white">AI 狼人杀</h2>
+            </div>
+
+            <p className="text-xl text-gray-300 leading-relaxed max-w-xl">
+              踏入充满谎言与推理的村庄。拥有独特个性的 AI 玩家将与你一同伪装、推理、投票。你能活过今晚吗？
             </p>
+
+            <div className="flex flex-wrap gap-4">
+              <Badge variant="outline" className="text-lg py-2 px-4 border-purple-500/50 text-purple-300 bg-purple-500/10">实时语音</Badge>
+              <Badge variant="outline" className="text-lg py-2 px-4 border-purple-500/50 text-purple-300 bg-purple-500/10">AI 逻辑推理</Badge>
+              <Badge variant="outline" className="text-lg py-2 px-4 border-purple-500/50 text-purple-300 bg-purple-500/10">多人联机</Badge>
+            </div>
+
+            <Link to="/werewolf">
+              <Button size="lg" className="mt-8 h-16 px-12 text-xl rounded-full bg-purple-600 hover:bg-purple-700 shadow-[0_0_30px_rgba(147,51,234,0.5)] transition-all hover:scale-105">
+                进入游戏
+                <ArrowRight className="ml-2 w-6 h-6" />
+              </Button>
+            </Link>
+          </motion.div>
+        </div>
+      </FullScreenSection>
+
+      {/* Section 3: Script Murder World */}
+      <FullScreenSection className="relative">
+        <div className="absolute inset-0">
+          <img
+            src="https://images.unsplash.com/photo-1509248961158-e54f6934749c?q=80&w=2070&auto=format&fit=crop"
+            alt="Script Murder"
+            className="w-full h-full object-cover opacity-40"
+          />
+          <div className="absolute inset-0 bg-gradient-to-l from-[#030014] via-[#030014]/80 to-transparent" />
+        </div>
+
+        <div className="container relative z-10 px-4 grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+          <div className="hidden md:block" /> {/* Spacer */}
+          <motion.div
+            initial={{ opacity: 0, x: 50 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.8 }}
+            className="space-y-8 text-right"
+          >
+            <div className="flex items-center gap-4 justify-end">
+              <h2 className="text-5xl md:text-7xl font-bold text-white">AI 剧本杀</h2>
+              <div className="p-4 rounded-2xl bg-blue-600/20 text-blue-400 backdrop-blur-xl border border-blue-500/30">
+                <ScrollText className="w-12 h-12" />
+              </div>
+            </div>
+
+            <p className="text-xl text-gray-300 leading-relaxed ml-auto max-w-xl">
+              沉浸在复杂的叙事中。上传任意剧本，看 AI 如何赋予角色生命。在时间耗尽前解开谜题，还原真相。
+            </p>
+
+            <div className="flex flex-wrap gap-4 justify-end">
+              <Badge variant="outline" className="text-lg py-2 px-4 border-blue-500/50 text-blue-300 bg-blue-500/10">PDF 上传</Badge>
+              <Badge variant="outline" className="text-lg py-2 px-4 border-blue-500/50 text-blue-300 bg-blue-500/10">动态剧情</Badge>
+              <Badge variant="outline" className="text-lg py-2 px-4 border-blue-500/50 text-blue-300 bg-blue-500/10">角色扮演</Badge>
+            </div>
+
+            <Link to="/script-murder">
+              <Button size="lg" className="mt-8 h-16 px-12 text-xl rounded-full bg-blue-600 hover:bg-blue-700 shadow-[0_0_30px_rgba(37,99,235,0.5)] transition-all hover:scale-105">
+                开始探案
+                <ArrowRight className="ml-2 w-6 h-6" />
+              </Button>
+            </Link>
+          </motion.div>
+        </div>
+      </FullScreenSection>
+
+      {/* Section 4: Adventure World */}
+      <FullScreenSection className="relative">
+        <div className="absolute inset-0">
+          <img
+            src="https://images.unsplash.com/photo-1519074069444-1ba4fff66d16?q=80&w=2070&auto=format&fit=crop"
+            alt="Adventure"
+            className="w-full h-full object-cover opacity-40"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#030014] via-[#030014]/80 to-transparent" />
+        </div>
+
+        <div className="container relative z-10 px-4 grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+          <motion.div
+            initial={{ opacity: 0, x: -50 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.8 }}
+            className="space-y-8"
+          >
+            <div className="flex items-center gap-4">
+              <div className="p-4 rounded-2xl bg-emerald-600/20 text-emerald-400 backdrop-blur-xl border border-emerald-500/30">
+                <Binary className="w-12 h-12" />
+              </div>
+              <h2 className="text-5xl md:text-7xl font-bold text-white">数字冒险</h2>
+            </div>
+
+            <p className="text-xl text-gray-300 leading-relaxed max-w-xl">
+              纯文本构建的无限开放世界。你的每一个选择都将重塑宇宙。没有边界，只有由大模型驱动的纯粹想象力。
+            </p>
+
+            <div className="flex flex-wrap gap-4">
+              <Badge variant="outline" className="text-lg py-2 px-4 border-emerald-500/50 text-emerald-300 bg-emerald-500/10">开放世界</Badge>
+              <Badge variant="outline" className="text-lg py-2 px-4 border-emerald-500/50 text-emerald-300 bg-emerald-500/10">交互式小说</Badge>
+            </div>
+
+            <Link to="/adventure">
+              <Button size="lg" className="mt-8 h-16 px-12 text-xl rounded-full bg-emerald-600 hover:bg-emerald-700 shadow-[0_0_30px_rgba(5,150,105,0.5)] transition-all hover:scale-105">
+                开启旅程
+                <ArrowRight className="ml-2 w-6 h-6" />
+              </Button>
+            </Link>
+          </motion.div>
+        </div>
+      </FullScreenSection>
+
+      {/* Section 5: Companions & Footer */}
+      <FullScreenSection className="bg-[#030014] relative">
+        <div className="container relative z-10 px-4">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl md:text-6xl font-bold text-white mb-6">你的 AI 伴侣</h2>
+            <p className="text-xl text-gray-400">随时待命，永远忠诚</p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 max-w-5xl mx-auto">
-            {companions.map((companion) => (
-              <div
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 max-w-6xl mx-auto mb-20">
+            {companions.map((companion, index) => (
+              <motion.div
                 key={companion.id}
-                className="bg-card rounded-2xl p-6 border hover:shadow-primary transition-all duration-300"
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+                className="group relative aspect-[3/4] rounded-2xl overflow-hidden cursor-pointer"
               >
-                <div className="flex items-center gap-4 mb-4">
-                  <img
-                    src={companion.avatar_url || ''}
-                    alt={companion.name}
-                    className="w-16 h-16 rounded-full"
-                  />
-                  <div>
-                    <h3 className="text-xl font-bold">{companion.name}</h3>
-                    <p className="text-sm text-muted-foreground">
-                      {companion.personality?.style}
-                    </p>
-                  </div>
+                <img
+                  src={companion.avatar_url || ''}
+                  alt={companion.name}
+                  className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 grayscale group-hover:grayscale-0"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-80" />
+                <div className="absolute bottom-0 left-0 right-0 p-6 translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
+                  <h3 className="text-xl font-bold text-white">{companion.name}</h3>
+                  <p className="text-sm text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity duration-300 mt-2">
+                    {companion.description}
+                  </p>
                 </div>
-                <p className="text-sm text-muted-foreground mb-4">
-                  {companion.description}
-                </p>
-                {companion.personality && (
-                  <div className="flex flex-wrap gap-2">
-                    {companion.personality.traits.map((trait, index) => (
-                      <Badge key={index} variant="outline">
-                        {trait}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-              </div>
+              </motion.div>
             ))}
           </div>
 
-          <div className="text-center mt-8">
-            <Button size="lg" variant="outline" asChild>
-              <a href="/companions">查看全部伴侣</a>
-            </Button>
-          </div>
-        </div>
-      </section>
-
-      {/* Features */}
-      <section className="py-16">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl xl:text-4xl font-bold mb-4">
-              <span className="gradient-text">核心特色</span>
-            </h2>
+          <div className="text-center">
+            <Link to="/companions">
+              <Button variant="outline" size="lg" className="rounded-full border-white/20 text-white hover:bg-white/10">
+                查看所有伴侣
+              </Button>
+            </Link>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-            <div className="text-center p-6">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-2xl gradient-bg-primary flex items-center justify-center">
-                <Zap className="w-8 h-8 text-primary-foreground" />
-              </div>
-              <h3 className="text-xl font-bold mb-2">秒速开局</h3>
-              <p className="text-muted-foreground">
-                无需等待真人玩家，AI伴侣随时待命
-              </p>
-            </div>
-            <div className="text-center p-6">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-2xl gradient-bg-secondary flex items-center justify-center">
-                <Users className="w-8 h-8 text-primary-foreground" />
-              </div>
-              <h3 className="text-xl font-bold mb-2">智能配合</h3>
-              <p className="text-muted-foreground">
-                AI伴侣策略稳定，避免猪队友问题
-              </p>
-            </div>
-            <div className="text-center p-6">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-2xl gradient-bg-primary flex items-center justify-center">
-                <Sparkles className="w-8 h-8 text-primary-foreground" />
-              </div>
-              <h3 className="text-xl font-bold mb-2">个性化体验</h3>
-              <p className="text-muted-foreground">
-                AI伴侣学习你的游戏风格，越玩越默契
-              </p>
-            </div>
-            <div className="text-center p-6">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-2xl gradient-bg-secondary flex items-center justify-center">
-                <Trophy className="w-8 h-8 text-primary-foreground" />
-              </div>
-              <h3 className="text-xl font-bold mb-2">社交融合</h3>
-              <p className="text-muted-foreground">
-                游戏数据转化为匹配信号，结识真人玩家
-              </p>
-            </div>
-          </div>
+          <footer className="absolute bottom-8 left-0 right-0 text-center text-gray-600 text-sm">
+            © 2024 NEXUS AI Gaming. All rights reserved.
+          </footer>
         </div>
-      </section>
+      </FullScreenSection>
     </div>
   );
 }

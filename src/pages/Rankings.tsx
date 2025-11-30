@@ -48,19 +48,28 @@ export default function Rankings() {
     return <Badge variant="outline">#{rank}</Badge>;
   };
 
-  const RankingList = ({ rankings, icon: Icon, color }: { rankings: Ranking[]; icon: any; color: string }) => (
+  const RankingList = ({
+    rankings,
+    icon: Icon,
+    color,
+  }: {
+    rankings: Ranking[];
+    icon: any;
+    color: string;
+  }) => (
     <div className="space-y-3">
       {rankings.length > 0 ? (
         rankings.map((ranking, index) => (
           <Card key={ranking.id} className="hover:shadow-primary transition-all">
             <CardContent className="p-4">
               <div className="flex items-center gap-4">
-                <div className="flex-shrink-0">
-                  {getRankBadge(index + 1)}
-                </div>
+                <div className="flex-shrink-0">{getRankBadge(index + 1)}</div>
                 <div className="flex items-center gap-3 flex-1">
                   <img
-                    src={(ranking as any).user?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${ranking.user_id}`}
+                    src={
+                      (ranking as any).user?.avatar_url ||
+                      `https://api.dicebear.com/7.x/avataaars/svg?seed=${ranking.user_id}`
+                    }
                     alt="avatar"
                     className="w-12 h-12 rounded-full"
                   />
@@ -82,9 +91,7 @@ export default function Rankings() {
           </Card>
         ))
       ) : (
-        <div className="text-center py-12 text-muted-foreground">
-          暂无排行数据
-        </div>
+        <div className="text-center py-12 text-muted-foreground">暂无排行数据</div>
       )}
     </div>
   );
@@ -108,9 +115,7 @@ export default function Rankings() {
             <h1 className="text-4xl xl:text-5xl font-bold mb-4">
               <span className="gradient-text">排行榜</span>
             </h1>
-            <p className="text-lg text-muted-foreground">
-              展示最优秀的玩家，争夺荣耀榜首
-            </p>
+            <p className="text-lg text-muted-foreground">展示最优秀的玩家，争夺荣耀榜首</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -148,11 +153,7 @@ export default function Rankings() {
             </TabsList>
 
             <TabsContent value="power" className="mt-6">
-              <RankingList
-                rankings={powerRankings}
-                icon={Zap}
-                color="bg-primary/10 text-primary"
-              />
+              <RankingList rankings={powerRankings} icon={Zap} color="bg-primary/10 text-primary" />
             </TabsContent>
 
             <TabsContent value="charm" className="mt-6">

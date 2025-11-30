@@ -1,7 +1,9 @@
 {
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
   "files": {
-    "includes": ["src/**/*.{js,jsx,ts,tsx}"]
+    "includes": [
+      "src/**/*.{js,jsx,ts,tsx}"
+    ]
   },
   "linter": {
     "enabled": true,
@@ -19,6 +21,16 @@
     }
   },
   "formatter": {
-    "enabled": false
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single",
+      "semicolons": "always",
+      "trailingCommas": "all"
+    }
   }
 }

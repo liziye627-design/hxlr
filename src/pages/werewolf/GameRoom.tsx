@@ -1,3 +1,6 @@
+// biome-ignore lint/correctness/noUndeclaredDependencies: suppress for internal imports
+
+// React namespace not needed with new JSX transform
 import { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -5,12 +8,38 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { werewolfApi, gameApi } from '@/db/api';
 import { aiService } from '@/services/ai';
-import { Send, Users, Moon, Sun, Vote, Brain, ArrowLeft, Download, Mic, MicOff } from 'lucide-react';
-import type { WerewolfPersona, WerewolfGameConfig, WerewolfPlayer, WerewolfSpeechRecord } from '@/types';
+import {
+  Send,
+  Users,
+  Moon,
+  Sun,
+  Vote,
+  Brain,
+  ArrowLeft,
+  Download,
+  Mic,
+  MicOff,
+} from 'lucide-react';
+import { tts } from '../../services/TTSService';
+import type {
+  WerewolfPersona,
+  WerewolfGameConfig,
+  WerewolfPlayer,
+  WerewolfSpeechRecord,
+} from '@/types';
+import { AgentFactory } from '@/agents/AgentFactory';
+import { IAgent, GameContext } from '@/agents/types';
+import { HumanMessage, AIMessage } from '@langchain/core/messages';
 
 // 角色类型定义
 type RoleType = 'werewolf' | 'villager' | 'seer' | 'witch' | 'hunter' | 'guard';
@@ -25,23 +54,14 @@ const ROLE_NAMES: Record<RoleType, string> = {
   guard: '守卫',
 };
 
-// 角色图片映射（使用用户提供的图片URL）
-const ROLE_IMAGES: Record<RoleType, string> = {
-  werewolf: 'https://placeholder-for-werewolf-image.jpg', // 将替换为实际图片
-  villager: 'https://placeholder-for-villager-image.jpg',
-  seer: 'https://placeholder-for-seer-image.jpg',
-  witch: 'https://placeholder-for-witch-image.jpg',
-  hunter: 'https://placeholder-for-hunter-image.jpg',
-  guard: 'https://placeholder-for-guard-image.jpg',
-};
+// Note: Role images placeholders - can be used when implementing role card visuals
 
 export default function GameRoom() {
   const location = useLocation();
   const navigate = useNavigate();
   const { toast } = useToast();
   const scrollRef = useRef<HTMLDivElement>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
+  const agentsRef = useRef<Map<string, IAgent>>(new Map());
 
   const { playerCount, config, personas } = location.state as {
     playerCount: 6 | 9 | 12;
@@ -63,7 +83,13 @@ export default function GameRoom() {
   const [showLearningDialog, setShowLearningDialog] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isVoiceSupported, setIsVoiceSupported] = useState(false);
-  
+  const [timeLeft, setTimeLeft] = useState(60);
+  const [ttsEnabled, setTtsEnabled] = useState(true);
+  const [ttsSpeakingPlayerId, setTtsSpeakingPlayerId] = useState<string | null>(null);
+  const lastSpokenMessageIdRef = useRef<string | null>(null);
+  const [ttsActiveCount, setTtsActiveCount] = useState(0);
+  const [pendingVoteTransition, setPendingVoteTransition] = useState(false);
+
   // 技能系统状态
   const [showSkillDialog, setShowSkillDialog] = useState(false);
   const [selectedTarget, setSelectedTarget] = useState<string | null>(null);
@@ -89,6 +115,73 @@ export default function GameRoom() {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [speeches]);
+
+  useEffect(() => {
+    if (!ttsEnabled || speeches.length === 0) return;
+    const latest = speeches[speeches.length - 1];
+    if (latest.speaker_type === 'ai' && latest.id !== lastSpokenMessageIdRef.current) {
+      lastSpokenMessageIdRef.current = latest.id;
+      const role = players.find(p => p.id === latest.speaker_id)?.role || 'villager';
+      tts.speak(latest.content, latest.speaker_id, { role });
+    }
+  }, [speeches, ttsEnabled, players]);
+
+  useEffect(() => {
+    const unsubscribe = tts.subscribe((isPlaying, _text, playerId) => {
+      if (isPlaying) {
+        setTtsActiveCount(c => c + 1);
+        if (playerId) setTtsSpeakingPlayerId(playerId);
+      } else {
+        setTtsActiveCount(c => Math.max(0, c - 1));
+        setTtsSpeakingPlayerId(prev => (prev === playerId ? null : prev));
+        if (pendingVoteTransition && ttsActiveCount - 1 <= 0 && currentPhase === 'day') {
+          setPendingVoteTransition(false);
+          setCurrentPhase('vote');
+          setCurrentSpeaker(1);
+          const systemMessage: WerewolfSpeechRecord = {
+            id: `system-${Date.now()}`,
+            session_id: sessionId,
+            round_number: currentRound,
+            phase: 'vote',
+            speaker_type: 'ai',
+            speaker_id: 'system',
+            speaker_name: '系统',
+            role: null,
+            content: '发言结束，请开始投票。',
+            emotion: null,
+            target_player: null,
+            vote_result: null,
+            created_at: new Date().toISOString(),
+          };
+          setSpeeches((prev) => [...prev, systemMessage]);
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, [pendingVoteTransition, currentPhase, currentRound, sessionId]);
+
+  useEffect(() => {
+    if (currentPhase === 'night') {
+      executeAINightActions();
+    }
+  }, [currentPhase]);
+
+  useEffect(() => {
+    let timer: ReturnType<typeof setInterval>;
+    if (gameStatus === 'playing' && (currentPhase === 'day' || currentPhase === 'vote')) {
+      setTimeLeft(60);
+      timer = setInterval(() => {
+        setTimeLeft((prev) => {
+          if (prev <= 1) {
+            moveToNextSpeaker();
+            return 60;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [currentSpeaker, currentPhase, gameStatus]);
 
   // 检查浏览器是否支持语音识别
   const checkVoiceSupport = () => {
@@ -199,7 +292,7 @@ export default function GameRoom() {
       console.log('用户角色类型:', typeof userAssignedRole);
       console.log('是否为undefined:', userAssignedRole === undefined);
       console.log('是否为null:', userAssignedRole === null);
-      
+
       if (!userAssignedRole) {
         console.error('错误：用户角色为空！');
         toast({
@@ -209,7 +302,7 @@ export default function GameRoom() {
         });
         return;
       }
-      
+
       setUserRole(userAssignedRole);
       console.log('已调用setUserRole，等待状态更新...');
 
@@ -236,10 +329,23 @@ export default function GameRoom() {
 
       setPlayers(playersList);
 
+      // Initialize Agents
+      const newAgents = new Map<string, IAgent>();
+      playersList.forEach((p) => {
+        if (p.type === 'ai' && p.role && p.persona) {
+          const agent = AgentFactory.createAgent(p.id, p.name, p.role, p.persona);
+          newAgents.set(p.id, agent);
+        }
+      });
+      agentsRef.current = newAgents;
+      console.log('Agents initialized:', newAgents.size);
+
       // 输出所有玩家的角色分配（仅用于调试）
       console.log('=== 所有玩家角色分配 ===');
-      playersList.forEach(player => {
-        console.log(`[${player.position}号] ${player.name}: ${ROLE_NAMES[player.role!]} (${player.role})`);
+      playersList.forEach((player) => {
+        console.log(
+          `[${player.position}号] ${player.name}: ${ROLE_NAMES[player.role!]} (${player.role})`,
+        );
       });
 
       // 角色卡片会在useEffect中自动显示
@@ -290,9 +396,10 @@ export default function GameRoom() {
     }
 
     try {
-      const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+      const SpeechRecognition =
+        (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
       const recognition = new SpeechRecognition();
-      
+
       recognition.lang = 'zh-CN';
       recognition.continuous = false;
       recognition.interimResults = false;
@@ -307,7 +414,7 @@ export default function GameRoom() {
 
       recognition.onresult = (event: any) => {
         const transcript = event.results[0][0].transcript;
-        setUserInput(prev => prev + transcript);
+        setUserInput((prev) => prev + transcript);
         toast({
           title: '识别成功',
           description: `识别内容: ${transcript}`,
@@ -348,7 +455,7 @@ export default function GameRoom() {
     if (!userInput.trim() || !sessionId) return;
 
     // 检查是否轮到用户发言
-    const currentPlayer = players.find(p => p.position === currentSpeaker);
+    const currentPlayer = players.find((p) => p.position === currentSpeaker);
     if (!currentPlayer || currentPlayer.type !== 'user') {
       toast({
         title: '还没轮到你',
@@ -374,7 +481,10 @@ export default function GameRoom() {
       created_at: new Date().toISOString(),
     };
 
-    setSpeeches(prev => [...prev, userSpeech]);
+    setSpeeches((prev) => [...prev, userSpeech]);
+    if (ttsEnabled) {
+      tts.speak(userInput, 'user', { role: userRole || 'villager' });
+    }
     setUserInput('');
 
     // 记录发言到数据库
@@ -387,18 +497,27 @@ export default function GameRoom() {
   // 移动到下一位发言者
   const moveToNextSpeaker = async () => {
     setIsAIThinking(true);
-    
+
     // 找到下一位存活的玩家
     let nextPosition = currentSpeaker + 1;
     if (nextPosition > playerCount) {
       nextPosition = 1;
     }
 
-    const nextPlayer = players.find(p => p.position === nextPosition && p.is_alive);
-    
+    // 循环寻找下一个活着的玩家，防止全部死亡导致无限循环
+    let attempts = 0;
+    let nextPlayer = null;
+    while (attempts < playerCount) {
+      nextPlayer = players.find((p) => p.position === nextPosition && p.is_alive);
+      if (nextPlayer) break;
+      nextPosition = nextPosition + 1 > playerCount ? 1 : nextPosition + 1;
+      attempts++;
+    }
+
     if (!nextPlayer) {
-      // 如果没有下一位，进入下一阶段
+      // 没有活着的玩家，游戏结束
       setIsAIThinking(false);
+      handleEndGame();
       return;
     }
 
@@ -419,61 +538,126 @@ export default function GameRoom() {
   // AI发言
   const handleAISpeech = async (aiPlayer: WerewolfPlayer) => {
     try {
-      // 构建AI提示词
-      const prompt = `你是狼人杀游戏中的${aiPlayer.position}号玩家"${aiPlayer.name}"，你的人设特征如下：
-${aiPlayer.persona?.description}
+      const agent = agentsRef.current.get(aiPlayer.id);
+      if (!agent) {
+        console.error('Agent not found for player:', aiPlayer.id);
+        return;
+      }
 
-性格特征：
-- 逻辑性: ${((aiPlayer.persona?.personality_traits.logical_level || 0.5) * 100).toFixed(0)}%
-- 情绪化: ${((aiPlayer.persona?.personality_traits.emotional_level || 0.5) * 100).toFixed(0)}%
-- 激进度: ${((aiPlayer.persona?.personality_traits.aggressive_level || 0.5) * 100).toFixed(0)}%
-- 谨慎度: ${((aiPlayer.persona?.personality_traits.cautious_level || 0.5) * 100).toFixed(0)}%
-
-当前游戏状态：
-- 回合数: ${currentRound}
-- 阶段: ${currentPhase === 'night' ? '夜晚' : currentPhase === 'day' ? '白天' : '投票'}
-- 你的座位号: ${aiPlayer.position}号
-- 存活玩家: ${players.filter(p => p.is_alive).length}人
-
-现在轮到你发言了。请根据你的人设特征和游戏阶段，做出符合角色性格的发言。
-${currentPhase === 'day' ? '白天阶段，你可以分析局势、质疑可疑玩家、或为自己辩护。' : ''}
-${currentPhase === 'vote' ? '投票阶段，请说明你要投票的对象和理由。' : ''}
-
-回应要简洁有力，不超过100字。`;
-
-      const aiResponse = await aiService.chat([
-        {
-          id: `prompt-${Date.now()}`,
-          role: 'user',
-          content: prompt,
-          timestamp: new Date().toISOString(),
-        },
-      ]);
-
-      const aiSpeech: WerewolfSpeechRecord = {
-        id: `ai-${Date.now()}`,
-        session_id: sessionId,
-        round_number: currentRound,
-        phase: currentPhase,
-        speaker_type: 'ai',
-        speaker_id: aiPlayer.id,
-        speaker_name: aiPlayer.name,
-        role: null,
-        content: aiResponse,
-        emotion: null,
-        target_player: null,
-        vote_result: null,
-        created_at: new Date().toISOString(),
+      const context: GameContext = {
+        round: currentRound,
+        phase: currentPhase as any, // Type assertion needed due to phase string mismatch
+        players: players,
+        history: speeches.map((s) => {
+          if (s.speaker_type === 'user') {
+            return new HumanMessage(s.content);
+          } else {
+            return new AIMessage(s.content);
+          }
+        }),
+        alivePlayers: players.filter((p) => p.is_alive),
+        availableActions: ['speak', 'pass'], // Available actions during day speech
       };
 
-      setSpeeches(prev => [...prev, aiSpeech]);
-      await werewolfApi.recordSpeech(aiSpeech);
+      const action = await agent.processTurn(context);
+
+      if (action.type === 'speak' && action.content) {
+        const aiSpeech: WerewolfSpeechRecord = {
+          id: `ai-${Date.now()}`,
+          session_id: sessionId,
+          round_number: currentRound,
+          phase: currentPhase,
+          speaker_type: 'ai',
+          speaker_id: aiPlayer.id,
+          speaker_name: aiPlayer.name,
+          role: null,
+          content: action.content,
+          emotion: null,
+          target_player: null,
+          vote_result: null,
+          created_at: new Date().toISOString(),
+        };
+
+        setSpeeches((prev) => [...prev, aiSpeech]);
+        await werewolfApi.recordSpeech(aiSpeech);
+      } else if (action.type === 'vote' && action.targetId) {
+        // Handle vote (if public voting)
+        const target = players.find((p) => p.id === action.targetId);
+        const voteContent = `I vote for ${target?.name || 'unknown'}`;
+
+        const aiSpeech: WerewolfSpeechRecord = {
+          id: `ai-${Date.now()}`,
+          session_id: sessionId,
+          round_number: currentRound,
+          phase: currentPhase,
+          speaker_type: 'ai',
+          speaker_id: aiPlayer.id,
+          speaker_name: aiPlayer.name,
+          role: null,
+          content: voteContent,
+          emotion: null,
+          target_player: action.targetId,
+          vote_result: action.targetId,
+          created_at: new Date().toISOString(),
+        };
+        setSpeeches((prev) => [...prev, aiSpeech]);
+      }
     } catch (error) {
       console.error('AI发言失败:', error);
     }
   };
 
-  // 使用角色技能
+  const executeAINightActions = async () => {
+    console.log('Executing AI Night Actions...');
+    const aiPlayers = players.filter((p) => p.type === 'ai' && p.is_alive);
+
+    for (const player of aiPlayers) {
+      const agent = agentsRef.current.get(player.id);
+      if (agent) {
+        const context: GameContext = {
+          round: currentRound,
+          phase: 'NIGHT' as any, // Type assertion needed due to phase type mismatch
+          players: players,
+          history: [],
+          alivePlayers: players.filter((p) => p.is_alive),
+          availableActions: ['skill'], // Available actions during night
+        };
+
+        try {
+          const action = await agent.processTurn(context);
+          if (action.type === 'skill' && action.targetId) {
+            console.log(`AI ${player.name} (${player.role}) used skill on ${action.targetId}`);
+            // Store action in nightActions
+            // Note: In a real game, we should handle conflicts and priorities
+            if (player.role === 'werewolf') {
+              setNightActions((prev) => ({ ...prev, [`werewolf_${player.id}`]: action.targetId }));
+            } else if (player.role === 'seer') {
+              setNightActions((prev) => ({ ...prev, [`seer_${player.id}`]: action.targetId }));
+            } else if (player.role === 'witch') {
+              if (action.skillParams?.type === 'save') {
+                setNightActions((prev) => ({
+                  ...prev,
+                  [`witch_save_${player.id}`]: action.targetId,
+                }));
+              } else if (action.skillParams?.type === 'poison') {
+                setNightActions((prev) => ({
+                  ...prev,
+                  [`witch_poison_${player.id}`]: action.targetId,
+                }));
+              }
+            } else if (player.role === 'guard') {
+              setNightActions((prev) => ({ ...prev, [`guard_${player.id}`]: action.targetId }));
+            }
+          }
+        } catch (e) {
+          console.error(`Error processing night action for ${player.name}:`, e);
+        }
+      }
+    }
+  };
+
+  // 使用角色技能 (currently unused but kept for future implementation)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const useSkill = async (targetId: string) => {
     if (!userRole || !sessionId) return;
 
@@ -481,40 +665,46 @@ ${currentPhase === 'vote' ? '投票阶段，请说明你要投票的对象和理
       switch (userRole) {
         case 'seer':
           // 预言家查验
-          const target = players.find(p => p.id === targetId);
+          const target = players.find((p) => p.id === targetId);
           if (target) {
             const isWerewolf = target.role === 'werewolf';
             toast({
               title: '查验结果',
               description: `${target.name}是${isWerewolf ? '狼人' : '好人'}`,
             });
-            setNightActions(prev => ({ ...prev, seer: targetId }));
+            setNightActions((prev) => ({ ...prev, seer: targetId }));
           }
           break;
 
         case 'witch':
           // 女巫使用药水
           if (selectedTarget === 'antidote' && witchPotions.antidote) {
-            setWitchPotions(prev => ({ ...prev, antidote: false }));
-            setNightActions(prev => ({ ...prev, witch_antidote: targetId }));
+            setWitchPotions((prev) => ({ ...prev, antidote: false }));
+            setNightActions((prev) => ({ ...prev, witch_antidote: targetId }));
             toast({ title: '使用解药', description: '你救了一名玩家' });
           } else if (selectedTarget === 'poison' && witchPotions.poison) {
-            setWitchPotions(prev => ({ ...prev, poison: false }));
-            setNightActions(prev => ({ ...prev, witch_poison: targetId }));
+            setWitchPotions((prev) => ({ ...prev, poison: false }));
+            setNightActions((prev) => ({ ...prev, witch_poison: targetId }));
             toast({ title: '使用毒药', description: '你毒杀了一名玩家' });
           }
           break;
 
         case 'guard':
           // 守卫守护
-          setNightActions(prev => ({ ...prev, guard: targetId }));
-          toast({ title: '守护成功', description: `你守护了${players.find(p => p.id === targetId)?.name}` });
+          setNightActions((prev) => ({ ...prev, guard: targetId }));
+          toast({
+            title: '守护成功',
+            description: `你守护了${players.find((p) => p.id === targetId)?.name}`,
+          });
           break;
 
         case 'werewolf':
           // 狼人击杀
-          setNightActions(prev => ({ ...prev, werewolf_kill: targetId }));
-          toast({ title: '击杀目标', description: `你选择击杀${players.find(p => p.id === targetId)?.name}` });
+          setNightActions((prev) => ({ ...prev, werewolf_kill: targetId }));
+          toast({
+            title: '击杀目标',
+            description: `你选择击杀${players.find((p) => p.id === targetId)?.name}`,
+          });
           break;
 
         default:
@@ -533,19 +723,147 @@ ${currentPhase === 'vote' ? '投票阶段，请说明你要投票的对象和理
     }
   };
 
-  // 开始夜晚阶段的技能使用
+  // 开始夜晚阶段的技能使用 (currently unused but kept for future implementation)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const startNightSkills = () => {
     if (currentPhase === 'night' && userRole && userRole !== 'villager') {
       setShowSkillDialog(true);
     }
   };
 
+  // 处理夜晚行动的结算
+  const resolveNightActions = () => {
+    console.log('Resolving night actions:', nightActions);
+    let killedPlayerId: string | null = null;
+    let savedPlayerId: string | null = null;
+    let poisonedPlayerId: string | null = null;
+    let guardedPlayerId: string | null = null;
+
+    // 1. 守卫守护
+    for (const key in nightActions) {
+      if (key.startsWith('guard_')) {
+        guardedPlayerId = nightActions[key];
+        console.log(`守卫守护了: ${guardedPlayerId}`);
+        break; // 假设只有一个守卫或只取第一个守卫的行动
+      }
+    }
+
+    // 2. 狼人击杀
+    const werewolfKills: { [key: string]: string } = {};
+    for (const key in nightActions) {
+      if (key.startsWith('werewolf_')) {
+        werewolfKills[key] = nightActions[key];
+      }
+    }
+
+    // 简单处理：如果多个狼人，取第一个狼人击杀的目标
+    if (Object.keys(werewolfKills).length > 0) {
+      killedPlayerId = Object.values(werewolfKills)[0];
+      console.log(`狼人击杀了: ${killedPlayerId}`);
+    }
+
+    // 3. 女巫解药
+    for (const key in nightActions) {
+      if (key.startsWith('witch_save_')) {
+        savedPlayerId = nightActions[key];
+        console.log(`女巫解药救了: ${savedPlayerId}`);
+        break;
+      }
+    }
+
+    // 4. 女巫毒药
+    for (const key in nightActions) {
+      if (key.startsWith('witch_poison_')) {
+        poisonedPlayerId = nightActions[key];
+        console.log(`女巫毒药毒了: ${poisonedPlayerId}`);
+        break;
+      }
+    }
+
+    let deathMessages: string[] = [];
+    let newPlayers = [...players];
+
+    // 结算被狼人击杀的玩家
+    if (killedPlayerId && killedPlayerId !== guardedPlayerId) {
+      if (killedPlayerId === savedPlayerId) {
+        deathMessages.push(
+          `昨晚，${players.find((p) => p.id === killedPlayerId)?.name}被狼人袭击，但被女巫的解药所救，幸免于难。`,
+        );
+      } else {
+        newPlayers = newPlayers.map((p) =>
+          p.id === killedPlayerId ? { ...p, is_alive: false } : p,
+        );
+        deathMessages.push(
+          `昨晚，${players.find((p) => p.id === killedPlayerId)?.name}不幸被狼人袭击，离开了我们。`,
+        );
+      }
+    } else if (killedPlayerId && killedPlayerId === guardedPlayerId) {
+      deathMessages.push(
+        `昨晚，${players.find((p) => p.id === killedPlayerId)?.name}被狼人袭击，但被守卫守护，幸免于难。`,
+      );
+    }
+
+    // 结算被女巫毒杀的玩家
+    if (poisonedPlayerId && poisonedPlayerId !== killedPlayerId) {
+      // 避免重复死亡消息
+      newPlayers = newPlayers.map((p) =>
+        p.id === poisonedPlayerId ? { ...p, is_alive: false } : p,
+      );
+      deathMessages.push(
+        `昨晚，${players.find((p) => p.id === poisonedPlayerId)?.name}被女巫的毒药所害，离开了我们。`,
+      );
+    }
+
+    setPlayers(newPlayers);
+    setNightActions({}); // 清空夜晚行动
+
+    // 添加死亡消息到发言记录
+    if (deathMessages.length > 0) {
+      const systemMessage: WerewolfSpeechRecord = {
+        id: `system-death-${Date.now()}`,
+        session_id: sessionId,
+        round_number: currentRound,
+        phase: 'day',
+        speaker_type: 'ai',
+        speaker_id: 'system',
+        speaker_name: '系统',
+        role: null,
+        content: deathMessages.join('\n'),
+        emotion: null,
+        target_player: null,
+        vote_result: null,
+        created_at: new Date().toISOString(),
+      };
+      setSpeeches((prev) => [...prev, systemMessage]);
+    } else {
+      const systemMessage: WerewolfSpeechRecord = {
+        id: `system-peace-${Date.now()}`,
+        session_id: sessionId,
+        round_number: currentRound,
+        phase: 'day',
+        speaker_type: 'ai',
+        speaker_id: 'system',
+        speaker_name: '系统',
+        role: null,
+        content: '昨晚是平安夜，没有人离开。',
+        emotion: null,
+        target_player: null,
+        vote_result: null,
+        created_at: new Date().toISOString(),
+      };
+      setSpeeches((prev) => [...prev, systemMessage]);
+    }
+  };
+
   const handleNextPhase = () => {
     if (currentPhase === 'night') {
+      // Resolve night actions before day starts
+      resolveNightActions();
+
       // 夜晚结束，进入白天
       setCurrentPhase('day');
       setCurrentSpeaker(1); // 重置发言顺序，从1号位开始
-      
+
       const systemMessage: WerewolfSpeechRecord = {
         id: `system-${Date.now()}`,
         session_id: sessionId,
@@ -561,18 +879,20 @@ ${currentPhase === 'vote' ? '投票阶段，请说明你要投票的对象和理
         vote_result: null,
         created_at: new Date().toISOString(),
       };
-      setSpeeches(prev => [...prev, systemMessage]);
-      
+      setSpeeches((prev) => [...prev, systemMessage]);
+
       // 如果1号位是AI，自动开始发言
-      const firstPlayer = players.find(p => p.position === 1);
+      const firstPlayer = players.find((p) => p.position === 1);
       if (firstPlayer?.type === 'ai') {
         setTimeout(() => moveToNextSpeaker(), 1000);
       }
     } else if (currentPhase === 'day') {
-      // 白天结束，进入投票
+      if (ttsActiveCount > 0) {
+        setPendingVoteTransition(true);
+        return;
+      }
       setCurrentPhase('vote');
-      setCurrentSpeaker(1); // 重置投票顺序
-      
+      setCurrentSpeaker(1);
       const systemMessage: WerewolfSpeechRecord = {
         id: `system-${Date.now()}`,
         session_id: sessionId,
@@ -588,13 +908,13 @@ ${currentPhase === 'vote' ? '投票阶段，请说明你要投票的对象和理
         vote_result: null,
         created_at: new Date().toISOString(),
       };
-      setSpeeches(prev => [...prev, systemMessage]);
+      setSpeeches((prev) => [...prev, systemMessage]);
     } else {
       // 投票结束，进入下一回合
-      setCurrentRound(prev => prev + 1);
+      setCurrentRound((prev) => prev + 1);
       setCurrentPhase('night');
       setCurrentSpeaker(0); // 夜晚阶段不需要发言顺序
-      
+
       const systemMessage: WerewolfSpeechRecord = {
         id: `system-${Date.now()}`,
         session_id: sessionId,
@@ -610,7 +930,7 @@ ${currentPhase === 'vote' ? '投票阶段，请说明你要投票的对象和理
         vote_result: null,
         created_at: new Date().toISOString(),
       };
-      setSpeeches(prev => [...prev, systemMessage]);
+      setSpeeches((prev) => [...prev, systemMessage]);
     }
   };
 
@@ -629,7 +949,7 @@ ${currentPhase === 'vote' ? '投票阶段，请说明你要投票的对象和理
       });
 
       // 获取所有用户发言
-      const userSpeeches = speeches.filter(s => s.speaker_type === 'user');
+      const userSpeeches = speeches.filter((s) => s.speaker_type === 'user');
 
       if (userSpeeches.length < 5) {
         toast({
@@ -699,7 +1019,7 @@ ${userSpeeches.map((s, i) => `${i + 1}. [${s.phase === 'night' ? '夜晚' : s.ph
           voting_tendency: 'adaptive',
           strategy_style: 'learned',
         },
-        sample_speeches: userSpeeches.map(s => s.content),
+        sample_speeches: userSpeeches.map((s) => s.content),
         is_public: false,
       });
 
@@ -766,7 +1086,9 @@ ${userSpeeches.map((s, i) => `${i + 1}. [${s.phase === 'night' ? '夜晚' : s.ph
         <div className="flex items-center gap-4">
           <Badge variant="outline" className="text-lg px-4 py-2">
             {getPhaseIcon()}
-            <span className="ml-2">第{currentRound}回合 - {getPhaseText()}</span>
+            <span className="ml-2">
+              第{currentRound}回合 - {getPhaseText()}
+            </span>
           </Badge>
           <Button variant="outline" onClick={handleEndGame}>
             结束游戏
@@ -787,23 +1109,18 @@ ${userSpeeches.map((s, i) => `${i + 1}. [${s.phase === 'night' ? '夜晚' : s.ph
           <CardContent className="space-y-4">
             {/* 查看角色按钮 */}
             {userRole && (
-              <Button 
-                variant="outline" 
-                className="w-full"
-                onClick={() => setShowRoleCard(true)}
-              >
+              <Button variant="outline" className="w-full" onClick={() => setShowRoleCard(true)}>
                 <Brain className="w-4 h-4 mr-2" />
                 查看我的角色
               </Button>
             )}
-            
+
             <div className="space-y-2">
               {players.map((player) => (
                 <div
                   key={player.id}
-                  className={`flex items-center justify-between p-3 rounded-lg border ${
-                    player.is_alive ? 'bg-background' : 'bg-muted opacity-50'
-                  } ${player.type === 'user' ? 'border-primary border-2' : ''}`}
+                  className={`flex items-center justify-between p-3 rounded-lg border ${player.is_alive ? 'bg-background' : 'bg-muted opacity-50'
+                    } ${player.type === 'user' ? 'border-primary border-2' : ''}`}
                 >
                   <div className="flex items-center gap-2">
                     <Badge variant={player.type === 'user' ? 'default' : 'secondary'}>
@@ -827,9 +1144,7 @@ ${userSpeeches.map((s, i) => `${i + 1}. [${s.phase === 'night' ? '夜晚' : s.ph
                         {player.role === 'guard' && '🛡️'}
                       </span>
                     )}
-                    {!player.is_alive && (
-                      <Badge variant="destructive">已出局</Badge>
-                    )}
+                    {!player.is_alive && <Badge variant="destructive">已出局</Badge>}
                   </div>
                 </div>
               ))}
@@ -855,18 +1170,21 @@ ${userSpeeches.map((s, i) => `${i + 1}. [${s.phase === 'night' ? '夜晚' : s.ph
                     className={`flex ${speech.speaker_type === 'user' ? 'justify-end' : 'justify-start'}`}
                   >
                     <div
-                      className={`max-w-[80%] rounded-lg p-3 ${
-                        speech.speaker_type === 'user'
-                          ? 'bg-primary text-primary-foreground'
-                          : speech.speaker_name === '系统'
+                      className={`max-w-[80%] rounded-lg p-3 ${speech.speaker_type === 'user'
+                        ? 'bg-primary text-primary-foreground'
+                        : speech.speaker_name === '系统'
                           ? 'bg-muted text-muted-foreground'
                           : 'bg-secondary'
-                      }`}
+                        } ${speech.speaker_type === 'ai' && ttsSpeakingPlayerId === speech.speaker_id ? 'ring-2 ring-yellow-400 shadow-lg' : ''}`}
                     >
                       <div className="flex items-center gap-2 mb-1">
                         <span className="font-semibold text-sm">{speech.speaker_name}</span>
                         <Badge variant="outline" className="text-xs">
-                          {speech.phase === 'night' ? '夜晚' : speech.phase === 'day' ? '白天' : '投票'}
+                          {speech.phase === 'night'
+                            ? '夜晚'
+                            : speech.phase === 'day'
+                              ? '白天'
+                              : '投票'}
                         </Badge>
                       </div>
                       <p className="text-sm">{speech.content}</p>
@@ -897,11 +1215,11 @@ ${userSpeeches.map((s, i) => `${i + 1}. [${s.phase === 'night' ? '夜晚' : s.ph
                 }}
                 rows={3}
               />
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" onClick={handleNextPhase}>
-                    进入下一阶段
-                  </Button>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" onClick={handleNextPhase}>
+                      进入下一阶段
+                    </Button>
                   {isVoiceSupported && (
                     <Button
                       variant={isRecording ? 'destructive' : 'outline'}
@@ -941,7 +1259,14 @@ ${userSpeeches.map((s, i) => `${i + 1}. [${s.phase === 'night' ? '夜晚' : s.ph
               请记住你的角色，不要告诉其他人
             </DialogDescription>
           </DialogHeader>
-          <div className="flex flex-col items-center justify-center space-y-6 py-6">
+          <div className="relative w-full h-full flex flex-col items-center justify-center p-4">
+            {/* Timer Display */}
+            {(currentPhase === 'day' || currentPhase === 'vote') && (
+              <div className="absolute top-4 right-4 bg-black/50 px-4 py-2 rounded-full text-white font-bold animate-pulse">
+                ⏱️ {timeLeft}s
+              </div>
+            )}
+
             {userRole ? (
               <>
                 {/* 角色图片 */}
@@ -971,7 +1296,10 @@ ${userSpeeches.map((s, i) => `${i + 1}. [${s.phase === 'night' ? '夜晚' : s.ph
                     {userRole === 'hunter' && '你是猎人，出局时可以开枪带走一名玩家'}
                     {userRole === 'guard' && '你是守卫，每晚可以守护一名玩家'}
                   </p>
-                  <Badge variant={userRole === 'werewolf' ? 'destructive' : 'default'} className="text-lg px-6 py-2">
+                  <Badge
+                    variant={userRole === 'werewolf' ? 'destructive' : 'default'}
+                    className="text-lg px-6 py-2"
+                  >
                     {userRole === 'werewolf' ? '🐺 狼人阵营' : '✨ 好人阵营'}
                   </Badge>
                 </div>
@@ -985,21 +1313,29 @@ ${userSpeeches.map((s, i) => `${i + 1}. [${s.phase === 'night' ? '夜晚' : s.ph
                     </h4>
                     <div className="space-y-2">
                       {players
-                        .filter(p => p.role === 'werewolf' && p.id !== 'user')
-                        .map(teammate => (
-                          <div key={teammate.id} className="flex items-center gap-2 p-2 bg-background rounded">
+                        .filter((p) => p.role === 'werewolf' && p.id !== 'user')
+                        .map((teammate) => (
+                          <div
+                            key={teammate.id}
+                            className="flex items-center gap-2 p-2 bg-background rounded"
+                          >
                             <span className="text-2xl">🐺</span>
                             <div className="flex-1">
-                              <p className="font-medium">[{teammate.position}号] {teammate.name}</p>
+                              <p className="font-medium">
+                                [{teammate.position}号] {teammate.name}
+                              </p>
                               {teammate.persona && (
-                                <p className="text-xs text-muted-foreground">{teammate.persona.description}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {teammate.persona.description}
+                                </p>
                               )}
                             </div>
                           </div>
                         ))}
-                      {players.filter(p => p.role === 'werewolf' && p.id !== 'user').length === 0 && (
-                        <p className="text-center text-sm text-muted-foreground">你是唯一的狼人</p>
-                      )}
+                      {players.filter((p) => p.role === 'werewolf' && p.id !== 'user').length ===
+                        0 && (
+                          <p className="text-center text-sm text-muted-foreground">你是唯一的狼人</p>
+                        )}
                     </div>
                   </div>
                 )}
@@ -1033,7 +1369,7 @@ ${userSpeeches.map((s, i) => `${i + 1}. [${s.phase === 'night' ? '夜晚' : s.ph
             <div className="text-sm text-muted-foreground">
               <p>本局游戏统计：</p>
               <ul className="list-disc list-inside mt-2 space-y-1">
-                <li>总发言数: {speeches.filter(s => s.speaker_type === 'user').length} 条</li>
+                <li>总发言数: {speeches.filter((s) => s.speaker_type === 'user').length} 条</li>
                 <li>游戏回合: {currentRound} 回合</li>
                 <li>参与玩家: {playerCount} 人</li>
               </ul>
@@ -1043,7 +1379,11 @@ ${userSpeeches.map((s, i) => `${i + 1}. [${s.phase === 'night' ? '夜晚' : s.ph
                 <Download className="w-4 h-4 mr-2" />
                 生成人设
               </Button>
-              <Button variant="outline" onClick={() => setShowLearningDialog(false)} className="flex-1">
+              <Button
+                variant="outline"
+                onClick={() => setShowLearningDialog(false)}
+                className="flex-1"
+              >
                 稍后再说
               </Button>
             </div>

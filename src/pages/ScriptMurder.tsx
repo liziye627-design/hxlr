@@ -3,13 +3,16 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ChatInterface } from '@/components/game/ChatInterface';
+import { ScriptViewer } from '@/components/game/ScriptViewer';
 import { useUser } from '@/contexts/UserContext';
 import { useToast } from '@/hooks/use-toast';
 import { storyApi, companionApi, gameApi } from '@/db/api';
 import { aiService } from '@/services/ai';
-import { ArrowLeft, Play, Star } from 'lucide-react';
+import { ArrowLeft, Play, Star, Award, Upload, BookOpen } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { Story, AICompanion, ChatMessage } from '@/types';
+import { getScriptConfig } from '@/data/scriptConfigs';
+import type { ScriptConfig } from '@/server/scriptmurder/types';
 
 export default function ScriptMurder() {
   const navigate = useNavigate();
@@ -22,6 +25,17 @@ export default function ScriptMurder() {
   const [gameStarted, setGameStarted] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [viewingScript, setViewingScript] = useState(false);
+  const [currentScriptConfig, setCurrentScriptConfig] = useState<ScriptConfig | null>(null);
+
+  // Official script IDs
+  const officialScriptIds = [
+    'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d',
+    'b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e',
+    'c3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e7f',
+  ];
+
+  const officialStories = stories.filter(s => officialScriptIds.includes(s.id));
 
   useEffect(() => {
     loadData();
@@ -60,7 +74,7 @@ export default function ScriptMurder() {
 
     try {
       await storyApi.incrementPlayCount(selectedStory.id);
-      
+
       const session = await gameApi.createSession({
         game_type: 'script_murder',
         mode: 'solo',
@@ -74,7 +88,7 @@ export default function ScriptMurder() {
 
       if (session) {
         setGameStarted(true);
-        
+
         const welcomeMessage: ChatMessage = {
           id: crypto.randomUUID(),
           role: 'assistant',
@@ -82,9 +96,9 @@ export default function ScriptMurder() {
           timestamp: new Date().toISOString(),
           companion: selectedCompanion,
         };
-        
+
         setMessages([welcomeMessage]);
-        
+
         toast({
           title: '游戏开始',
           description: '开始你的推理之旅！',
@@ -120,7 +134,7 @@ export default function ScriptMurder() {
         selectedCompanion,
         content
       );
-      
+
       const aiMessage: ChatMessage = {
         id: crypto.randomUUID(),
         role: 'assistant',
@@ -172,15 +186,26 @@ export default function ScriptMurder() {
     }
   };
 
+  // Show Script Viewer
+  if (viewingScript && currentScriptConfig) {
+    return (
+      <div className="min-h-screen">
+        <ScriptViewer
+          scriptConfig={currentScriptConfig}
+          onClose={() => {
+            setViewingScript(false);
+            setCurrentScriptConfig(null);
+          }}
+        />
+      </div>
+    );
+  }
+
   if (!gameStarted) {
     return (
       <div className="min-h-screen py-8">
         <div className="container mx-auto px-4">
-          <Button
-            variant="ghost"
-            onClick={() => navigate('/')}
-            className="mb-6"
-          >
+          <Button variant="ghost" onClick={() => navigate('/')} className="mb-6">
             <ArrowLeft className="w-4 h-4 mr-2" />
             返回首页
           </Button>
@@ -195,47 +220,108 @@ export default function ScriptMurder() {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-8">
-              {stories.map((story) => (
-                <Card
-                  key={story.id}
-                  className={`cursor-pointer transition-all hover:shadow-primary ${
-                    selectedStory?.id === story.id ? 'ring-2 ring-primary' : ''
-                  }`}
-                  onClick={() => setSelectedStory(story)}
-                >
-                  <div className="relative h-48 overflow-hidden rounded-t-xl">
-                    <img
-                      src={story.cover_url || ''}
-                      alt={story.title}
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                    {story.is_premium && (
-                      <Badge className="absolute top-3 right-3 gradient-bg-primary border-0">
-                        <Star className="w-3 h-3 mr-1" />
-                        VIP
-                      </Badge>
-                    )}
-                    <Badge className={`absolute top-3 left-3 ${getDifficultyColor(story.difficulty)} border-0`}>
-                      {getDifficultyText(story.difficulty)}
-                    </Badge>
-                  </div>
-                  <CardContent className="p-4">
-                    <h3 className="text-lg font-bold mb-2">{story.title}</h3>
-                    <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-                      {story.description}
-                    </p>
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>{story.min_players}-{story.max_players}人</span>
-                      <span>⭐ {story.rating.toFixed(1)}</span>
-                      <span>🎮 {story.play_count}次</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+            {/* Official Scripts Section */}
+            {officialStories.length > 0 && (
+              <div className="mb-16">
+                <div className="flex items-center gap-3 mb-6">
+                  <Award className="w-6 h-6 text-amber-500" />
+                  <h2 className="text-2xl font-bold">官方剧本</h2>
+                  <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 text-white">
+                    精选推荐
+                  </Badge>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                  {officialStories.map((story) => (
+                    <Card
+                      key={story.id}
+                      className={`cursor-pointer transition-all hover:shadow-lg hover:scale-105 ${selectedStory?.id === story.id ? 'ring-2 ring-primary' : ''
+                        }`}
+                      onClick={() => setSelectedStory(story)}
+                    >
+                      <div className="relative h-48 overflow-hidden rounded-t-xl">
+                        <img
+                          src={story.cover_url || ''}
+                          alt={story.title}
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+                        <Badge className="absolute top-3 left-3 bg-gradient-to-r from-amber-500 to-orange-500 border-0">
+                          <Award className="w-3 h-3 mr-1" />
+                          官方
+                        </Badge>
+                        {story.is_premium && (
+                          <Badge className="absolute top-3 right-3 gradient-bg-primary border-0">
+                            <Star className="w-3 h-3 mr-1" />
+                            VIP
+                          </Badge>
+                        )}
+                        <Badge className={`absolute top-12 left-3 ${getDifficultyColor(story.difficulty)} border-0`}>
+                          {getDifficultyText(story.difficulty)}
+                        </Badge>
+                      </div>
+                      <CardContent className="p-4">
+                        <h3 className="text-lg font-bold mb-2">{story.title}</h3>
+                        <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
+                          {story.description}
+                        </p>
+                        <div className="flex items-center justify-between text-xs text-muted-foreground mb-3">
+                          <span>{story.min_players}-{story.max_players}人</span>
+                          <span>⭐ {story.rating.toFixed(1)}</span>
+                          <span>🎮 {story.play_count}次</span>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const scriptConfig = getScriptConfig(story.story_data?.scriptId);
+                            if (scriptConfig) {
+                              setCurrentScriptConfig(scriptConfig);
+                              setViewingScript(true);
+                            }
+                          }}
+                        >
+                          <BookOpen className="w-4 h-4 mr-2" />
+                          查看详情
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Custom Upload Section */}
+            <div className="mb-8">
+              <div className="flex items-center gap-3 mb-6">
+                <Upload className="w-6 h-6 text-blue-500" />
+                <h2 className="text-2xl font-bold">自定义剧本</h2>
+              </div>
+
+              <Card
+                className="border-2 border-dashed hover:border-primary/50 transition-all cursor-pointer"
+                onClick={() => navigate('/scriptmurder/upload')}
+              >
+                <CardContent className="p-12 text-center">
+                  <Upload className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+                  <h3 className="text-xl font-semibold mb-2">上传您的剧本</h3>
+                  <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+                    支持上传角色剧本（PDF）和主持人手册。AI 将自动解析剧本内容并创建游戏房间。
+                  </p>
+                  <Button size="lg" variant="outline" onClick={(e) => {
+                    e.stopPropagation();
+                    navigate('/scriptmurder/upload');
+                  }}>
+                    <Upload className="w-5 h-5 mr-2" />
+                    进入上传页面
+                  </Button>
+                </CardContent>
+              </Card>
             </div>
 
+            {/* AI Companion Selection */}
             <Card className="mb-8">
               <CardContent className="p-6">
                 <h3 className="text-lg font-bold mb-4">选择AI主持人</h3>
@@ -244,11 +330,10 @@ export default function ScriptMurder() {
                     <button
                       key={companion.id}
                       onClick={() => setSelectedCompanion(companion)}
-                      className={`p-4 rounded-xl border-2 transition-all ${
-                        selectedCompanion?.id === companion.id
-                          ? 'border-primary bg-primary/5'
-                          : 'border-border hover:border-primary/50'
-                      }`}
+                      className={`p-4 rounded-xl border-2 transition-all ${selectedCompanion?.id === companion.id
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border hover:border-primary/50'
+                        }`}
                     >
                       <img
                         src={companion.avatar_url || ''}
@@ -262,6 +347,7 @@ export default function ScriptMurder() {
               </CardContent>
             </Card>
 
+            {/* Start Game Button */}
             <div className="text-center">
               <Button
                 size="lg"
@@ -279,17 +365,14 @@ export default function ScriptMurder() {
     );
   }
 
+  // Game Started View
   return (
     <div className="min-h-screen flex flex-col">
       <div className="border-b bg-card">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setGameStarted(false)}
-              >
+              <Button variant="ghost" size="sm" onClick={() => setGameStarted(false)}>
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 退出游戏
               </Button>

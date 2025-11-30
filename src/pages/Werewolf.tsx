@@ -4,7 +4,14 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
@@ -60,8 +67,8 @@ export default function Werewolf() {
   };
 
   const handleSelectPersona = (persona: WerewolfPersona) => {
-    if (selectedPersonas.find(p => p.id === persona.id)) {
-      setSelectedPersonas(selectedPersonas.filter(p => p.id !== persona.id));
+    if (selectedPersonas.find((p) => p.id === persona.id)) {
+      setSelectedPersonas(selectedPersonas.filter((p) => p.id !== persona.id));
     } else {
       if (selectedPersonas.length < selectedPlayerCount - 1) {
         setSelectedPersonas([...selectedPersonas, persona]);
@@ -184,9 +191,7 @@ export default function Werewolf() {
         <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
           AI狼人杀
         </h1>
-        <p className="text-muted-foreground">
-          选择局数、配置AI人设，开始你的狼人杀之旅
-        </p>
+        <p className="text-muted-foreground">选择局数、配置AI人设，开始你的狼人杀之旅</p>
       </div>
 
       {/* 局数选择 */}
@@ -204,9 +209,7 @@ export default function Werewolf() {
               <Card
                 key={count}
                 className={`cursor-pointer transition-all hover:shadow-lg ${
-                  selectedPlayerCount === count
-                    ? 'border-primary shadow-md'
-                    : 'border-border'
+                  selectedPlayerCount === count ? 'border-primary shadow-md' : 'border-border'
                 }`}
                 onClick={() => setSelectedPlayerCount(count as 6 | 9 | 12)}
               >
@@ -276,9 +279,7 @@ export default function Werewolf() {
               <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>创建自定义人设</DialogTitle>
-                  <DialogDescription>
-                    设置AI的性格特征和行为模式
-                  </DialogDescription>
+                  <DialogDescription>设置AI的性格特征和行为模式</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
                   <div className="space-y-2">
@@ -296,7 +297,9 @@ export default function Werewolf() {
                       id="persona-desc"
                       placeholder="描述这个人设的特点"
                       value={newPersona.description}
-                      onChange={(e) => setNewPersona({ ...newPersona, description: e.target.value })}
+                      onChange={(e) =>
+                        setNewPersona({ ...newPersona, description: e.target.value })
+                      }
                     />
                   </div>
                   <div className="space-y-4">
@@ -304,7 +307,9 @@ export default function Werewolf() {
                       <Label>逻辑性: {(newPersona.logical_level * 100).toFixed(0)}%</Label>
                       <Slider
                         value={[newPersona.logical_level]}
-                        onValueChange={([value]) => setNewPersona({ ...newPersona, logical_level: value })}
+                        onValueChange={([value]) =>
+                          setNewPersona({ ...newPersona, logical_level: value })
+                        }
                         max={1}
                         step={0.1}
                       />
@@ -313,7 +318,9 @@ export default function Werewolf() {
                       <Label>情绪化: {(newPersona.emotional_level * 100).toFixed(0)}%</Label>
                       <Slider
                         value={[newPersona.emotional_level]}
-                        onValueChange={([value]) => setNewPersona({ ...newPersona, emotional_level: value })}
+                        onValueChange={([value]) =>
+                          setNewPersona({ ...newPersona, emotional_level: value })
+                        }
                         max={1}
                         step={0.1}
                       />
@@ -322,7 +329,9 @@ export default function Werewolf() {
                       <Label>激进度: {(newPersona.aggressive_level * 100).toFixed(0)}%</Label>
                       <Slider
                         value={[newPersona.aggressive_level]}
-                        onValueChange={([value]) => setNewPersona({ ...newPersona, aggressive_level: value })}
+                        onValueChange={([value]) =>
+                          setNewPersona({ ...newPersona, aggressive_level: value })
+                        }
                         max={1}
                         step={0.1}
                       />
@@ -331,7 +340,9 @@ export default function Werewolf() {
                       <Label>谨慎度: {(newPersona.cautious_level * 100).toFixed(0)}%</Label>
                       <Slider
                         value={[newPersona.cautious_level]}
-                        onValueChange={([value]) => setNewPersona({ ...newPersona, cautious_level: value })}
+                        onValueChange={([value]) =>
+                          setNewPersona({ ...newPersona, cautious_level: value })
+                        }
                         max={1}
                         step={0.1}
                       />
@@ -340,7 +351,9 @@ export default function Werewolf() {
                       <Label>信任度: {(newPersona.trust_level * 100).toFixed(0)}%</Label>
                       <Slider
                         value={[newPersona.trust_level]}
-                        onValueChange={([value]) => setNewPersona({ ...newPersona, trust_level: value })}
+                        onValueChange={([value]) =>
+                          setNewPersona({ ...newPersona, trust_level: value })
+                        }
                         max={1}
                         step={0.1}
                       />
@@ -365,59 +378,78 @@ export default function Werewolf() {
                 <div className="text-center py-8 text-muted-foreground">加载中...</div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {personas.filter(p => p.type === 'preset').map((persona) => (
-                    <Card
-                      key={persona.id}
-                      className={`cursor-pointer transition-all hover:shadow-lg ${
-                        selectedPersonas.find(p => p.id === persona.id)
-                          ? 'border-primary shadow-md'
-                          : 'border-border'
-                      }`}
-                      onClick={() => handleSelectPersona(persona)}
-                    >
-                      <CardHeader>
-                        <CardTitle className="flex items-center justify-between">
-                          {persona.name}
-                          {selectedPersonas.find(p => p.id === persona.id) && (
-                            <Badge variant="default">已选</Badge>
-                          )}
-                        </CardTitle>
-                        <CardDescription>{persona.description}</CardDescription>
-                      </CardHeader>
-                      <CardContent className="space-y-2">
-                        <div className="grid grid-cols-2 gap-2 text-sm">
-                          <div className="flex items-center gap-1">
-                            <Brain className="w-4 h-4" />
-                            <span className={getPersonalityColor(persona.personality_traits.logical_level)}>
-                              逻辑 {(persona.personality_traits.logical_level * 100).toFixed(0)}%
-                            </span>
+                  {personas
+                    .filter((p) => p.type === 'preset')
+                    .map((persona) => (
+                      <Card
+                        key={persona.id}
+                        className={`cursor-pointer transition-all hover:shadow-lg ${
+                          selectedPersonas.find((p) => p.id === persona.id)
+                            ? 'border-primary shadow-md'
+                            : 'border-border'
+                        }`}
+                        onClick={() => handleSelectPersona(persona)}
+                      >
+                        <CardHeader>
+                          <CardTitle className="flex items-center justify-between">
+                            {persona.name}
+                            {selectedPersonas.find((p) => p.id === persona.id) && (
+                              <Badge variant="default">已选</Badge>
+                            )}
+                          </CardTitle>
+                          <CardDescription>{persona.description}</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                          <div className="grid grid-cols-2 gap-2 text-sm">
+                            <div className="flex items-center gap-1">
+                              <Brain className="w-4 h-4" />
+                              <span
+                                className={getPersonalityColor(
+                                  persona.personality_traits.logical_level,
+                                )}
+                              >
+                                逻辑 {(persona.personality_traits.logical_level * 100).toFixed(0)}%
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Zap className="w-4 h-4" />
+                              <span
+                                className={getPersonalityColor(
+                                  persona.personality_traits.aggressive_level,
+                                )}
+                              >
+                                激进{' '}
+                                {(persona.personality_traits.aggressive_level * 100).toFixed(0)}%
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Shield className="w-4 h-4" />
+                              <span
+                                className={getPersonalityColor(
+                                  persona.personality_traits.cautious_level,
+                                )}
+                              >
+                                谨慎 {(persona.personality_traits.cautious_level * 100).toFixed(0)}%
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Target className="w-4 h-4" />
+                              <span
+                                className={getPersonalityColor(
+                                  persona.personality_traits.trust_level,
+                                )}
+                              >
+                                信任 {(persona.personality_traits.trust_level * 100).toFixed(0)}%
+                              </span>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-1">
-                            <Zap className="w-4 h-4" />
-                            <span className={getPersonalityColor(persona.personality_traits.aggressive_level)}>
-                              激进 {(persona.personality_traits.aggressive_level * 100).toFixed(0)}%
-                            </span>
+                          <div className="flex items-center justify-between text-xs text-muted-foreground">
+                            <span>使用次数: {persona.usage_count}</span>
+                            <span>评分: {persona.rating.toFixed(1)}</span>
                           </div>
-                          <div className="flex items-center gap-1">
-                            <Shield className="w-4 h-4" />
-                            <span className={getPersonalityColor(persona.personality_traits.cautious_level)}>
-                              谨慎 {(persona.personality_traits.cautious_level * 100).toFixed(0)}%
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Target className="w-4 h-4" />
-                            <span className={getPersonalityColor(persona.personality_traits.trust_level)}>
-                              信任 {(persona.personality_traits.trust_level * 100).toFixed(0)}%
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between text-xs text-muted-foreground">
-                          <span>使用次数: {persona.usage_count}</span>
-                          <span>评分: {persona.rating.toFixed(1)}</span>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                        </CardContent>
+                      </Card>
+                    ))}
                 </div>
               )}
             </TabsContent>

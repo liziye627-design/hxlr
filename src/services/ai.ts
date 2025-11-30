@@ -1,9 +1,18 @@
 import axios from 'axios';
 import type { ChatMessage, AICompanion } from '@/types';
 
-const DEEPSEEK_API_KEY = import.meta.env.VITE_DEEPSEEK_API_KEY;
-const DEEPSEEK_API_URL = import.meta.env.VITE_DEEPSEEK_API_URL;
-const DEEPSEEK_MODEL = import.meta.env.VITE_DEEPSEEK_MODEL;
+const DEEPSEEK_API_KEY = import.meta.env.VITE_DEEPSEEK_API_KEY || '';
+const DEEPSEEK_API_URL =
+  import.meta.env.VITE_DEEPSEEK_API_URL || 'https://api.siliconflow.cn/v1/chat/completions';
+const DEEPSEEK_MODEL = import.meta.env.VITE_DEEPSEEK_MODEL || 'deepseek-ai/DeepSeek-V3.1-Terminus';
+
+// Validate API configuration
+if (!DEEPSEEK_API_KEY) {
+  console.warn('⚠️ VITE_DEEPSEEK_API_KEY is not configured. AI features will not work.');
+}
+if (!import.meta.env.VITE_DEEPSEEK_API_URL) {
+  console.warn('⚠️ VITE_DEEPSEEK_API_URL not set, using default:', DEEPSEEK_API_URL);
+}
 
 interface AIMessage {
   role: 'user' | 'assistant' | 'system';
@@ -15,13 +24,18 @@ const aiClient = axios.create({
   timeout: 60000,
   headers: {
     'Content-Type': 'application/json',
-    'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
+    Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
   },
 });
 
 // AI对话服务
 export const aiService = {
   async chat(messages: ChatMessage[], companion?: AICompanion): Promise<string> {
+    if (!DEEPSEEK_API_KEY) {
+      console.error('AI service not configured: Missing API key');
+      return '抱歉，AI服务未配置，请联系管理员。';
+    }
+
     try {
       const formattedMessages: AIMessage[] = messages.map((msg) => ({
         role: msg.role,
@@ -59,8 +73,14 @@ export const aiService = {
   async streamChat(
     messages: ChatMessage[],
     companion: AICompanion | undefined,
-    onChunk: (chunk: string) => void
+    onChunk: (chunk: string) => void,
   ): Promise<void> {
+    if (!DEEPSEEK_API_KEY) {
+      console.error('AI service not configured: Missing API key');
+      onChunk('抱歉，AI服务未配置，请联系管理员。');
+      return;
+    }
+
     try {
       const formattedMessages: AIMessage[] = messages.map((msg) => ({
         role: msg.role,
@@ -79,7 +99,7 @@ export const aiService = {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
+          Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
         },
         body: JSON.stringify({
           model: DEEPSEEK_MODEL,
@@ -112,7 +132,7 @@ export const aiService = {
           if (line.startsWith('data: ')) {
             const data = line.slice(6);
             if (data === '[DONE]') continue;
-            
+
             try {
               const parsed = JSON.parse(data);
               if (parsed.choices?.[0]?.delta?.content) {
@@ -167,9 +187,9 @@ export const aiService = {
 
   // 狼人杀游戏AI决策
   async werewolfDecision(
-    gameState: any,
+    gameState: Record<string, unknown>,
     companion: AICompanion,
-    role: string
+    role: string,
   ): Promise<string> {
     const prompt = `你正在玩狼人杀游戏，你的角色是${role}。
 当前游戏状态：${JSON.stringify(gameState)}
@@ -193,7 +213,7 @@ export const aiService = {
   async scriptMurderInteraction(
     context: string,
     companion: AICompanion,
-    userQuestion: string
+    userQuestion: string,
   ): Promise<string> {
     const prompt = `剧本杀游戏背景：${context}
 
@@ -217,7 +237,7 @@ export const aiService = {
   async adventureNarration(
     storyContext: string,
     userAction: string,
-    companion: AICompanion
+    companion: AICompanion,
   ): Promise<string> {
     const prompt = `故事背景：${storyContext}
 

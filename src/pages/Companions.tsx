@@ -26,7 +26,7 @@ export default function Companions() {
       ]);
 
       setCompanions(allCompanions);
-      
+
       const companionsWithStatus = allCompanions.map((companion) => {
         const userCompanion = myCompanions.find((uc) => uc.id === companion.id);
         return {
@@ -36,7 +36,7 @@ export default function Companions() {
           unlocked: !!userCompanion,
         };
       });
-      
+
       setUserCompanions(companionsWithStatus);
     } catch (error) {
       console.error('Failed to load companions:', error);
@@ -103,9 +103,7 @@ export default function Companions() {
             <h1 className="text-4xl xl:text-5xl font-bold mb-4">
               <span className="gradient-text">AI伴侣中心</span>
             </h1>
-            <p className="text-lg text-muted-foreground">
-              选择你的游戏伙伴，开启精彩冒险
-            </p>
+            <p className="text-lg text-muted-foreground">选择你的游戏伙伴，开启精彩冒险</p>
           </div>
 
           <Tabs defaultValue="all" className="mb-8">
@@ -143,9 +141,7 @@ export default function Companions() {
                     ))
                 ) : (
                   <div className="col-span-full text-center py-12">
-                    <p className="text-muted-foreground mb-4">
-                      你还没有解锁任何AI伴侣
-                    </p>
+                    <p className="text-muted-foreground mb-4">你还没有解锁任何AI伴侣</p>
                     <Button onClick={() => loadData()}>刷新</Button>
                   </div>
                 )}
@@ -160,9 +156,7 @@ export default function Companions() {
                 <span className="text-2xl">⚡</span>
               </div>
               <h3 className="text-lg font-bold mb-2">策略型</h3>
-              <p className="text-sm text-muted-foreground">
-                逻辑清晰，善于分析局势，制定最优策略
-              </p>
+              <p className="text-sm text-muted-foreground">逻辑清晰，善于分析局势，制定最优策略</p>
             </div>
             <div className="bg-card rounded-xl p-6 border">
               <div className="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center mb-4">

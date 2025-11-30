@@ -23,28 +23,55 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const initUser = async () => {
     try {
       let userId = localStorage.getItem('userId');
-      
+
       if (!userId) {
         userId = crypto.randomUUID();
         localStorage.setItem('userId', userId);
       }
 
       const nickname = localStorage.getItem('userNickname') || `玩家${userId.slice(0, 6)}`;
-      const userData = await userApi.getOrCreateUser(userId, nickname);
-      
-      if (userData) {
-        setUser(userData);
+
+      try {
+        const userData = await userApi.getOrCreateUser(userId, nickname);
+        if (userData) {
+          setUser(userData);
+        } else {
+          // Create a guest user locally if database fails
+          console.warn('⚠️ Database unavailable. Creating guest user.');
+          createGuestUser(userId, nickname);
+        }
+      } catch (dbError) {
+        console.error('Failed to connect to database:', dbError);
+        console.warn('⚠️ Creating guest user with limited features.');
+        createGuestUser(userId, nickname);
       }
     } catch (error) {
       console.error('Failed to initialize user:', error);
+      // Create a minimal guest user as last resort
+      createGuestUser('guest-' + Date.now(), '访客');
     } finally {
       setLoading(false);
     }
   };
 
+  const createGuestUser = (id: string, nickname: string) => {
+    setUser({
+      id,
+      nickname,
+      avatar_url: `https://api.dicebear.com/7.x/avataaars/svg?seed=${id}`,
+      level: 1,
+      experience: 0,
+      coins: 100,
+      vip_status: 'free',
+      vip_expire_at: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+  };
+
   const refreshUser = async () => {
     if (!user) return;
-    
+
     try {
       const userData = await userApi.getUserById(user.id);
       if (userData) {
@@ -55,7 +82,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const isVIP = user?.vip_status !== 'free' && 
+  const isVIP =
+    user?.vip_status !== 'free' &&
     (!user?.vip_expire_at || new Date(user.vip_expire_at) > new Date());
 
   return (

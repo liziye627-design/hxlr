@@ -127,6 +127,21 @@ export interface ChatMessage {
   companion?: AICompanion;
 }
 
+// 游戏阶段类型
+export type GamePhase =
+  | 'WAITING'
+  | 'NIGHT'
+  | 'DAY_MORNING_RESULT'
+  | 'DAY_DISCUSS'
+  | 'DAY_VOTE'
+  | 'DAY_DEATH_LAST_WORDS'
+  | 'SHERIFF_ELECTION_DISCUSS'
+  | 'SHERIFF_ELECTION_VOTE'
+  | 'HUNTER_SHOOT'
+  | 'BADGE_TRANSFER'
+  | 'GAME_OVER'
+  | 'DAY_RESULT';
+
 // 游戏房间类型
 export interface GameRoom {
   id: string;
@@ -231,10 +246,16 @@ export interface WerewolfPlayer {
   id: string;
   name: string;
   type: 'user' | 'ai';
-  persona?: WerewolfPersona;
+  persona?: WerewolfPersona | any;
   role?: 'werewolf' | 'villager' | 'seer' | 'witch' | 'hunter' | 'guard';
   is_alive: boolean;
   position: number;
+  // Multiplayer fields
+  socketId?: string | null;  // 修改为 string | null 以兼容 RoomPlayer
+  isOnline?: boolean;
+  hasActedNight?: boolean;
+  hasVoted?: boolean;
+  hasHunterShot?: boolean;
 }
 
 // 狼人杀游戏状态类型
@@ -243,7 +264,10 @@ export interface WerewolfGameState {
   player_count: 6 | 9 | 12;
   players: WerewolfPlayer[];
   current_round: number;
-  current_phase: 'night' | 'day' | 'vote';
+  current_phase: GamePhase | 'night' | 'day' | 'vote';
   game_status: 'waiting' | 'playing' | 'finished';
   winner: 'werewolf' | 'villager' | null;
+  timer?: number;
+  sheriffId?: string | null;
+  witchPotions?: { antidote: boolean; poison: boolean };
 }

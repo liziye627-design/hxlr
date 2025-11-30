@@ -56,7 +56,7 @@ export default function Adventure() {
 
       if (session) {
         setGameStarted(true);
-        
+
         const welcomeMessage: ChatMessage = {
           id: crypto.randomUUID(),
           role: 'assistant',
@@ -64,9 +64,9 @@ export default function Adventure() {
           timestamp: new Date().toISOString(),
           companion: selectedCompanion,
         };
-        
+
         setMessages([welcomeMessage]);
-        
+
         toast({
           title: '冒险开始',
           description: '开启你的奇幻之旅！',
@@ -99,13 +99,9 @@ export default function Adventure() {
       const storyContext = messages
         .map((m) => `${m.role === 'user' ? '玩家' : 'AI'}：${m.content}`)
         .join('\n');
-      
-      const response = await aiService.adventureNarration(
-        storyContext,
-        content,
-        selectedCompanion
-      );
-      
+
+      const response = await aiService.adventureNarration(storyContext, content, selectedCompanion);
+
       const aiMessage: ChatMessage = {
         id: crypto.randomUUID(),
         role: 'assistant',
@@ -131,11 +127,7 @@ export default function Adventure() {
     return (
       <div className="min-h-screen py-8">
         <div className="container mx-auto px-4">
-          <Button
-            variant="ghost"
-            onClick={() => navigate('/')}
-            className="mb-6"
-          >
+          <Button variant="ghost" onClick={() => navigate('/')} className="mb-6">
             <ArrowLeft className="w-4 h-4 mr-2" />
             返回首页
           </Button>
@@ -181,23 +173,17 @@ export default function Adventure() {
               <Card className="p-6 text-center">
                 <div className="text-4xl mb-3">🗺️</div>
                 <h3 className="font-bold mb-2">自由探索</h3>
-                <p className="text-sm text-muted-foreground">
-                  通过对话选择推动故事发展
-                </p>
+                <p className="text-sm text-muted-foreground">通过对话选择推动故事发展</p>
               </Card>
               <Card className="p-6 text-center">
                 <div className="text-4xl mb-3">🎭</div>
                 <h3 className="font-bold mb-2">多重结局</h3>
-                <p className="text-sm text-muted-foreground">
-                  你的选择决定故事走向
-                </p>
+                <p className="text-sm text-muted-foreground">你的选择决定故事走向</p>
               </Card>
               <Card className="p-6 text-center">
                 <div className="text-4xl mb-3">🤝</div>
                 <h3 className="font-bold mb-2">AI互动</h3>
-                <p className="text-sm text-muted-foreground">
-                  与AI NPC进行真实对话
-                </p>
+                <p className="text-sm text-muted-foreground">与AI NPC进行真实对话</p>
               </Card>
             </div>
 
@@ -224,11 +210,7 @@ export default function Adventure() {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setGameStarted(false)}
-              >
+              <Button variant="ghost" size="sm" onClick={() => setGameStarted(false)}>
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 退出冒险
               </Button>

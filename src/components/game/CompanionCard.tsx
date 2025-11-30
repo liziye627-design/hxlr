@@ -51,7 +51,9 @@ export function CompanionCard({
   };
 
   return (
-    <Card className={`group overflow-hidden transition-all duration-300 hover:shadow-primary ${isLocked ? 'opacity-60' : ''}`}>
+    <Card
+      className={`group overflow-hidden transition-all duration-300 hover:shadow-primary ${isLocked ? 'opacity-60' : ''}`}
+    >
       <div className="relative">
         <div className="h-48 overflow-hidden bg-gradient-bg-hero">
           <img
@@ -65,12 +67,12 @@ export function CompanionCard({
             </div>
           )}
         </div>
-        
+
         <Badge className={`absolute top-3 right-3 ${getTypeColor(companion.type)} border-0`}>
           {getTypeName(companion.type)}
         </Badge>
       </div>
-      
+
       <CardContent className="p-4">
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-lg font-bold">{companion.name}</h3>
@@ -81,11 +83,9 @@ export function CompanionCard({
             </div>
           )}
         </div>
-        
-        <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-          {companion.description}
-        </p>
-        
+
+        <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{companion.description}</p>
+
         {companion.personality && (
           <div className="flex flex-wrap gap-1 mb-3">
             {companion.personality.traits.map((trait, index) => (
@@ -95,7 +95,7 @@ export function CompanionCard({
             ))}
           </div>
         )}
-        
+
         {isLocked ? (
           <Button
             onClick={onUnlock}

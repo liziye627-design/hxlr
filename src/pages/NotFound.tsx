@@ -1,5 +1,5 @@
-import { Link } from "react-router-dom";
-import PageMeta from "@/components/common/PageMeta";
+import { Link } from 'react-router-dom';
+import PageMeta from '@/components/common/PageMeta';
 
 export default function NotFound() {
   return (
@@ -12,11 +12,7 @@ export default function NotFound() {
           </h1>
 
           <img src="/images/error/404.svg" alt="404" className="dark:hidden" />
-          <img
-            src="/images/error/404-dark.svg"
-            alt="404"
-            className="hidden dark:block"
-          />
+          <img src="/images/error/404-dark.svg" alt="404" className="hidden dark:block" />
 
           <p className="mt-10 mb-6 text-base text-gray-700 dark:text-gray-400 sm:text-lg">
             页面可能已被删除或不存在，请检查网址是否正确。

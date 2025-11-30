@@ -151,7 +151,7 @@ export const companionApi = {
   async updateCompanionIntimacy(
     userId: string,
     companionId: string,
-    intimacyDelta: number
+    intimacyDelta: number,
   ): Promise<UserCompanion | null> {
     const { data: existing } = await supabase
       .from('user_companions')
@@ -215,7 +215,10 @@ export const gameApi = {
     return data;
   },
 
-  async updateSession(sessionId: string, updates: Partial<GameSession>): Promise<GameSession | null> {
+  async updateSession(
+    sessionId: string,
+    updates: Partial<GameSession>,
+  ): Promise<GameSession | null> {
     const { data, error } = await supabase
       .from('game_sessions')
       .update(updates)
@@ -374,7 +377,7 @@ export const rankingApi = {
     userId: string,
     type: string,
     scoreDelta: number,
-    season: string
+    season: string,
   ): Promise<Ranking | null> {
     const { data: existing } = await supabase
       .from('rankings')
@@ -634,4 +637,3 @@ export const werewolfApi = {
     return Array.isArray(data) ? data : [];
   },
 };
-

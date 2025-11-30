@@ -12,11 +12,7 @@ const App: React.FC = () => {
           <main className="flex-grow">
             <Routes>
               {routes.map((route, index) => (
-                <Route
-                  key={index}
-                  path={route.path}
-                  element={route.element}
-                />
+                <Route key={index} path={route.path} element={route.element} />
               ))}
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

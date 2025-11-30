@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Socket.IO Test</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+</head>
+<body>
+    <h1>Socket.IO Connection Test</h1>
+    <div id="status">Connecting...</div>
+    <button onclick="testCreateRoom()">Test Create Room</button>
+    <pre id="logs"></pre>
+
+    <script>
+        const socket = io('http://127.0.0.1:3001', {
+            transports: ['websocket']
+        });
+
+        const logDiv = document.getElementById('logs');
+        const statusDiv = document.getElementById('status');
+
+        function log(msg) {
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.textContent += `[${timestamp}] ${msg}\n`;
+            console.log(msg);
+        }
+
+        socket.on('connect', () => {
+            statusDiv.textContent = 'Connected ✅';
+            statusDiv.style.color = 'green';
+            log('✅ Connected to server, socket id: ' + socket.id);
+        });
+
+        socket.on('disconnect', () => {
+            statusDiv.textContent = 'Disconnected ❌';
+            statusDiv.style.color = 'red';
+            log('❌ Disconnected from server');
+        });
+
+        socket.on('room_state', (state) => {
+            log('📨 Received room_state: ' + JSON.stringify(state, null, 2));
+        });
+
+        socket.on('connect_error', (err) => {
+            log('❌ Connection error: ' + err.message);
+        });
+
+        function testCreateRoom() {
+            log('📤 Sending create_room request...');
+            socket.emit('create_room', {
+                roomName: 'Test Room',
+                playerName: 'Test Player',
+                playerCount: 6
+            }, (response) => {
+                log('📨 Create room response: ' + JSON.stringify(response, null, 2));
+            });
+        }
+    </script>
+</body>
+</html>
