@@ -1,4 +1,4 @@
-import { supabase } from '../supabase';
+import { supabase } from '../supabase.js';
 
 export interface AgentConfig {
   id: string;
@@ -26,10 +26,18 @@ export interface AgentConfig {
 
 export class AgentRepository {
   /**
+   * 检查 Supabase 是否可用
+   */
+  private isAvailable(): boolean {
+    return supabase !== null;
+  }
+
+  /**
    * 保存单个Agent配置到数据库
    */
   async saveAgent(agentConfig: AgentConfig): Promise<void> {
-    const { error } = await supabase
+    if (!this.isAvailable()) return;
+    const { error } = await supabase!
       .from('ai_agents')
       .upsert({
         id: agentConfig.id,
@@ -67,7 +75,8 @@ export class AgentRepository {
    * 根据剧本ID加载所有Agent配置
    */
   async loadAgentsByScript(scriptId: string): Promise<AgentConfig[]> {
-    const { data, error } = await supabase
+    if (!this.isAvailable()) return [];
+    const { data, error } = await supabase!
       .from('ai_agents')
       .select('*')
       .eq('script_id', scriptId)
@@ -101,7 +110,8 @@ export class AgentRepository {
    * 获取单个Agent配置
    */
   async getAgentById(agentId: string): Promise<AgentConfig | null> {
-    const { data, error } = await supabase
+    if (!this.isAvailable()) return null;
+    const { data, error } = await supabase!
       .from('ai_agents')
       .select('*')
       .eq('id', agentId)
@@ -135,7 +145,8 @@ export class AgentRepository {
    * 删除Agent
    */
   async deleteAgent(agentId: string): Promise<void> {
-    const { error } = await supabase
+    if (!this.isAvailable()) return;
+    const { error } = await supabase!
       .from('ai_agents')
       .update({ is_active: false })
       .eq('id', agentId);
@@ -149,7 +160,8 @@ export class AgentRepository {
    * 更新Agent的System Prompt
    */
   async updateSystemPrompt(agentId: string, newPrompt: string): Promise<void> {
-    const { error } = await supabase
+    if (!this.isAvailable()) return;
+    const { error } = await supabase!
       .from('ai_agents')
       .update({
         system_prompt: newPrompt,
