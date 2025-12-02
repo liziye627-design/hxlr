@@ -7,17 +7,19 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Dependencies
 node_modules
+
+# Build output
 dist
 dist-ssr
 output
 *.local
-package-lock.json
 
-# Environment files
+# Environment files (重要：保护 API Key)
 .env
 .env.*
-!.env.production.example
+!.env.example
 
 # Editor directories and files
 .vscode/*
@@ -29,7 +31,15 @@ package-lock.json
 *.njsproj
 *.sln
 *.sw?
+
+# Project specific
 .sync
 history/*.json
 .vite_cache
 TODO.md
+
+
+# 其他
+*.tgz
+.npm
+.eslintcache
