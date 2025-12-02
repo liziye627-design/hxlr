@@ -1,5 +1,10 @@
-import pdf from 'pdf-parse';
 import fs from 'fs/promises';
+
+async function getPdfParse(): Promise<(buffer: Buffer) => Promise<{ text: string }>> {
+    const mod: any = await import('pdf-parse');
+    const fn = mod?.default ?? mod;
+    return fn as (buffer: Buffer) => Promise<{ text: string }>;
+}
 
 /**
  * PDF文本提取服务
@@ -11,6 +16,7 @@ export class PDFParser {
     async extractText(pdfPath: string): Promise<string> {
         try {
             const dataBuffer = await fs.readFile(pdfPath);
+            const pdf = await getPdfParse();
             const data = await pdf(dataBuffer);
             return data.text;
         } catch (error) {

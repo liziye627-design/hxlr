@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI剧本杀 - 沉浸式剧本体验</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 420px;
+            margin: 0 auto;
+        }
+
+        /* 游戏卡片 */
+        .game-card {
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .game-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 50px rgba(0, 0, 0, 0.2);
+        }
+
+        /* 卡片头部图片 */
+        .card-header {
+            position: relative;
+            height: 280px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            overflow: hidden;
+        }
+
+        .card-header::before {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y="50" font-size="60" fill="white" opacity="0.3">🎭</text></svg>') center/contain no-repeat;
+            opacity: 0.4;
+        }
+
+        .card-title {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            color: white;
+            font-size: 32px;
+            font-weight: bold;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+            z-index: 1;
+        }
+
+        .settings-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+            z-index: 2;
+        }
+
+        .settings-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+
+        /* 卡片内容 */
+        .card-content {
+            padding: 25px;
+        }
+
+        .card-description {
+            color: #666;
+            font-size: 15px;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+
+        /* 信息行 */
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            padding: 15px 0;
+            border-top: 1px solid #f0f0f0;
+        }
+
+        .info-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #999;
+            font-size: 14px;
+        }
+
+        .info-item svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        /* 开始游戏按钮 */
+        .start-button {
+            width: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 16px;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .start-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .start-button:active {
+            transform: translateY(0);
+        }
+
+        /* 模态框 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 28px;
+            color: #999;
+            cursor: pointer;
+            line-height: 1;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+        }
+
+        .close-btn:hover {
+            color: #333;
+        }
+
+        /* 表单样式 */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e5e5e5;
+            border-radius: 10px;
+            font-size: 14px;
+            transition: border 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 120px;
+            font-family: inherit;
+        }
+
+        .submit-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        /* 房间列表 */
+        .room-list {
+            display: grid;
+            gap: 15px;
+        }
+
+        .room-item {
+            border: 2px solid #e5e5e5;
+            border-radius: 12px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .room-item:hover {
+            border-color: #667eea;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.1);
+        }
+
+        .room-item-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .room-item-info {
+            color: #999;
+            font-size: 14px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-top: 8px;
+        }
+
+        .status-badge.waiting {
+            background: #e8f5e9;
+            color: #4caf50;
+        }
+
+        .status-badge.playing {
+            background: #fff3e0;
+            color: #ff9800;
+        }
+
+        /* 聊天界面 */
+        #chat-box {
+            border: 2px solid #e5e5e5;
+            border-radius: 12px;
+            padding: 15px;
+            height: 400px;
+            overflow-y: auto;
+            background: #f9fafb;
+            margin-bottom: 15px;
+        }
+
+        .message {
+            padding: 12px;
+            margin-bottom: 10px;
+            border-radius: 10px;
+            animation: slideIn 0.3s;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .message.player {
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            border-left: 4px solid #2196F3;
+        }
+
+        .message.ai {
+            background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%);
+            border-left: 4px solid #9c27b0;
+        }
+
+        .message.system {
+            background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
+            border-left: 4px solid #ff9800;
+            text-align: center;
+        }
+
+        .message strong {
+            color: #667eea;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <!-- 主游戏卡片 -->
+        <div id="main-card" class="game-card">
+            <div class="card-header">
+                <button class="settings-btn" onclick="showSettings()">设置规则</button>
+                <div class="card-title">AI剧本杀</div>
+            </div>
+            <div class="card-content">
+                <div class="card-description">
+                    沉浸式剧本体验，AI主持引导，多种故事等你探索
+                </div>
+                <div class="info-row">
+                    <div class="info-item">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="9" cy="7" r="4"></circle>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                        </svg>
+                        <span>2-6人</span>
+                    </div>
+                    <div class="info-item">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <polyline points="12 6 12 12 16 14"></polyline>
+                        </svg>
+                        <span>30-60分钟</span>
+                    </div>
+                </div>
+                <button class="start-button" onclick="showRoomList()">开始游戏</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 设置模态框 -->
+    <div id="settings-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">创建游戏房间</div>
+                <button class="close-btn" onclick="closeModal('settings-modal')">×</button>
+            </div>
+            <form onsubmit="createRoom(event)">
+                <div class="form-group">
+                    <label>房间名称</label>
+                    <input type="text" id="room-name" placeholder="输入房间名称" value="雷雨夜的谋杀" required>
+                </div>
+                <div class="form-group">
+                    <label>剧本内容</label>
+                    <textarea id="script-text" placeholder="输入剧本..." required>雷雨交加的夜晚，书房。
+李医生焦急地在房间里踱步，他不断地擦拭额头上的汗水。桌子上放着一份被撕碎的遗嘱。
+突然，管家老王推门进来，手里端着一杯红茶。老王面无表情，眼神阴冷。
+李医生吓了一跳，下意识地用身体挡住了桌子上的碎纸片。</textarea>
+                </div>
+                <button type="submit" class="submit-btn">创建房间</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- 房间列表模态框 -->
+    <div id="rooms-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">选择房间</div>
+                <button class="close-btn" onclick="closeModal('rooms-modal')">×</button>
+            </div>
+            <button class="submit-btn" onclick="showSettings()" style="margin-bottom: 20px;">+ 创建新房间</button>
+            <div id="room-list" class="room-list"></div>
+        </div>
+    </div>
+
+    <!-- 游戏大厅模态框 -->
+    <div id="game-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title" id="current-room-name">游戏大厅</div>
+                <button class="close-btn" onclick="closeModal('game-modal')">×</button>
+            </div>
+
+            <div id="join-section">
+                <div class="form-group">
+                    <label>选择角色</label>
+                    <select id="character-select"></select>
+                </div>
+                <div class="form-group">
+                    <label>玩家昵称</label>
+                    <input type="text" id="player-name" placeholder="输入你的昵称">
+                </div>
+                <button class="submit-btn" onclick="joinGame()">加入游戏</button>
+            </div>
+
+            <div id="chat-section" class="hidden">
+                <div id="chat-box"></div>
+                <div class="form-group">
+                    <input type="text" id="message-input" placeholder="输入消息..." onkeypress="handleKeyPress(event)">
+                </div>
+                <button class="submit-btn" onclick="sendMessage()">发送消息</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000';
+        let currentRoomId = null;
+        let playerId = null;
+        let ws = null;
+
+        // 显示设置模态框
+        function showSettings() {
+            document.getElementById('settings-modal').classList.add('active');
+            closeModal('rooms-modal');
+        }
+
+        // 显示房间列表
+        function showRoomList() {
+            loadRooms();
+            document.getElementById('rooms-modal').classList.add('active');
+        }
+
+        // 关闭模态框
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+
+        // 创建房间
+        async function createRoom(event) {
+            event.preventDefault();
+
+            const roomName = document.getElementById('room-name').value;
+            const scriptText = document.getElementById('script-text').value;
+
+            try {
+                const response = await fetch(`${API_BASE}/api/rooms`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ room_name: roomName, script_text: scriptText })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    alert(`房间创建成功！`);
+                    closeModal('settings-modal');
+                    loadRooms();
+                    showRoomList();
+                } else {
+                    alert('创建失败: ' + (data.error || '未知错误'));
+                }
+            } catch (error) {
+                alert('网络错误: ' + error.message);
+            }
+        }
+
+        // 加载房间列表
+        async function loadRooms() {
+            try {
+                const response = await fetch(`${API_BASE}/api/rooms`);
+                const data = await response.json();
+
+                const listEl = document.getElementById('room-list');
+                listEl.innerHTML = '';
+
+                if (data.rooms.length === 0) {
+                    listEl.innerHTML = '<p style="text-align: center; color: #999;">暂无房间，创建一个开始游戏吧！</p>';
+                    return;
+                }
+
+                data.rooms.forEach(room => {
+                    const item = document.createElement('div');
+                    item.className = 'room-item';
+                    item.onclick = () => selectRoom(room.room_id);
+
+                    item.innerHTML = `
+                        <div class="room-item-title">${room.room_name}</div>
+                        <div class="room-item-info">玩家: ${room.current_players}/${room.max_players}</div>
+                        <span class="status-badge ${room.status}">${room.status === 'waiting' ? '等待中' : '游戏中'}</span>
+                    `;
+
+                    listEl.appendChild(item);
+                });
+            } catch (error) {
+                alert('加载失败: ' + error.message);
+            }
+        }
+
+        // 选择房间
+        async function selectRoom(roomId) {
+            currentRoomId = roomId;
+
+            try {
+                const response = await fetch(`${API_BASE}/api/rooms/${roomId}`);
+                const data = await response.json();
+
+                const room = data.room;
+
+                document.getElementById('current-room-name').textContent = room.room_name;
+
+                const select = document.getElementById('character-select');
+                select.innerHTML = '';
+
+                room.characters.forEach(char => {
+                    const option = document.createElement('option');
+                    option.value = char.name;
+                    option.textContent = `${char.name} ${char.taken ? '(已选)' : ''}`;
+                    option.disabled = char.taken;
+                    select.appendChild(option);
+                });
+
+                closeModal('rooms-modal');
+                document.getElementById('game-modal').classList.add('active');
+            } catch (error) {
+                alert('加载房间失败: ' + error.message);
+            }
+        }
+
+        // 加入游戏
+        async function joinGame() {
+            const playerName = document.getElementById('player-name').value;
+            const characterName = document.getElementById('character-select').value;
+
+            if (!playerName) {
+                alert('请输入昵称');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/api/rooms/${currentRoomId}/join`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        room_id: currentRoomId,
+                        player_name: playerName,
+                        character_name: characterName
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    playerId = data.player.player_id;
+                    connectWebSocket();
+                    document.getElementById('join-section').classList.add('hidden');
+                    document.getElementById('chat-section').classList.remove('hidden');
+                } else {
+                    alert('加入失败: ' + (data.error || '未知错误'));
+                }
+            } catch (error) {
+                alert('网络错误: ' + error.message);
+            }
+        }
+
+        // 连接 WebSocket
+        function connectWebSocket() {
+            ws = new WebSocket(`ws://localhost:8000/ws/${currentRoomId}/${playerId}`);
+
+            ws.onopen = () => {
+                addMessage('system', '系统', '已连接到游戏房间');
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+
+                if (data.type === 'chat') {
+                    const isAI = data.sender !== document.getElementById('player-name').value;
+                    addMessage(isAI ? 'ai' : 'player', data.sender, data.content);
+                } else if (data.type === 'connected') {
+                    addMessage('system', '系统', data.message);
+                }
+            };
+
+            ws.onerror = (error) => {
+                console.error('WebSocket 错误:', error);
+            };
+
+            ws.onclose = () => {
+                addMessage('system', '系统', '连接已断开');
+            };
+        }
+
+        // 发送消息
+        function sendMessage() {
+            const input = document.getElementById('message-input');
+            const content = input.value.trim();
+
+            if (!content || !ws) return;
+
+            // 检测是否是询问 AI
+            const aiNames = Array.from(document.getElementById('character-select').options)
+                .map(opt => opt.value);
+
+            let target = null;
+            for (const name of aiNames) {
+                if (content.includes(name)) {
+                    target = name;
+                    break;
+                }
+            }
+
+            ws.send(JSON.stringify({
+                sender: document.getElementById('player-name').value,
+                content: content,
+                message_type: 'public',
+                target: target
+            }));
+
+            input.value = '';
+        }
+
+        // 处理回车键
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        // 添加消息到聊天框
+        function addMessage(type, sender, content) {
+            const chatBox = document.getElementById('chat-box');
+            const message = document.createElement('div');
+            message.className = `message ${type}`;
+            message.innerHTML = type === 'system' ? content : `<strong>${sender}:</strong> ${content}`;
+            chatBox.appendChild(message);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        // 点击模态框外部关闭
+        window.onclick = function (event) {
+            if (event.target.classList.contains('modal')) {
+                event.target.classList.remove('active');
+            }
+        }
+    </script>
+</body>
+
+</html>

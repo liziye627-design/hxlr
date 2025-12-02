@@ -1,19 +1,19 @@
-import { NarratorAgent } from './NarratorAgent';
+import { GameMasterAgent } from './GameMasterAgent';
 import { CharacterAgent } from './CharacterAgent';
 import type { ScriptData, GameState, PlayerAction, AgentResponse } from '../types';
 
 /**
- * AgentOrchestrator - Coordinates all agents (Narrator + Characters)
+ * AgentOrchestrator - Coordinates all agents (GM + Characters)
  * Routes player actions to appropriate agents
  */
 export class AgentOrchestrator {
-    private narratorAgent: NarratorAgent;
+    private gameMaster: GameMasterAgent;
     private characterAgents: Map<string, CharacterAgent> = new Map();
     private gameState: GameState;
 
-    constructor(script: ScriptData, gameState: GameState) {
+    constructor(script: ScriptData, gameState: GameState, handbookPath?: string) {
         this.gameState = gameState;
-        this.narratorAgent = new NarratorAgent(script, gameState);
+        this.gameMaster = new GameMasterAgent(script, gameState, handbookPath);
 
         // Initialize character agents
         script.characters.forEach(character => {
@@ -28,10 +28,10 @@ export class AgentOrchestrator {
     async routePlayerAction(action: PlayerAction): Promise<AgentResponse> {
         switch (action.type) {
             case 'story_progress':
-                return await this.narratorAgent.progressStory();
+                return await this.gameMaster.progressStory();
 
             case 'investigate':
-                return this.narratorAgent.revealClue();
+                return this.gameMaster.revealClue();
 
             case 'ask_character':
                 if (!action.characterId || !action.message) {
@@ -50,10 +50,10 @@ export class AgentOrchestrator {
                 return await characterAgent.respond(action.message);
 
             case 'chat':
-                // General chat goes to narrator for context-aware response
+                // General chat goes to GM for context-aware response
                 if (action.message) {
-                    const narration = await this.narratorAgent.narrateEvent(
-                        `玩家说：${action.message}。请作为旁白，对此做出回应。`
+                    const narration = await this.gameMaster.narrateEvent(
+                        `玩家说：${action.message}。请作为主持人，对此做出回应。`
                     );
                     return {
                         type: 'narration',
@@ -77,7 +77,7 @@ export class AgentOrchestrator {
      * Initialize the game
      */
     async initializeGame(): Promise<AgentResponse> {
-        return await this.narratorAgent.initializeGame();
+        return await this.gameMaster.initializeGame();
     }
 
     /**
@@ -93,14 +93,14 @@ export class AgentOrchestrator {
      * Get current scene
      */
     getCurrentScene() {
-        return this.narratorAgent.getCurrentScene();
+        return this.gameMaster.getCurrentScene();
     }
 
     /**
      * Get game progress
      */
     getGameProgress() {
-        return this.narratorAgent.getGameProgress();
+        return this.gameMaster.getGameProgress();
     }
 
     /**

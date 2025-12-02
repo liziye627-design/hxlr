@@ -5,43 +5,56 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/ca
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Badge } from '../../components/ui/badge';
-import { Plus, LogIn, Users, ArrowLeft, Sword, Shield, Moon } from 'lucide-react';
+import { ArrowLeft, Sword, Shield } from 'lucide-react';
 
 export default function WerewolfLobby() {
   const navigate = useNavigate();
   const [mode, setMode] = useState<'select' | 'create' | 'join'>('select');
-  const [roomName, setRoomName] = useState('');
-  const [playerName, setPlayerName] = useState('玩家1');
-  const [roomId, setRoomId] = useState('');
   const [selectedMode, setSelectedMode] = useState<6 | 9 | 12>(6);
+  const [playerName, setPlayerName] = useState('');
+  const [roomName, setRoomName] = useState('');
+  const [roomId, setRoomId] = useState('');
+
+  const handleStartMultiplayerGame = async () => {
+    const playerCount = selectedMode;
+    const aiPersonas = Array.from({ length: playerCount - 1 }, () => 'ai');
+    // 导航到联机房间并自动创建房间+补位AI
+    navigate('/werewolf/multiplayer', {
+      state: {
+        mode: playerCount,
+        aiPersonas,
+        autoStart: true,
+      },
+    });
+  };
 
   const handleCreateRoom = () => {
     if (!playerName.trim() || !roomName.trim()) {
-      alert('请输入玩家名和房间名');
+      alert('请填写玩家名称和房间名称');
       return;
     }
-
-    navigate('/werewolf/game', {
+    // 导航到联机房间，传递创建房间所需信息
+    navigate('/werewolf/multiplayer', {
       state: {
-        action: 'create',
+        mode: selectedMode,
         playerName,
         roomName,
-        mode: selectedMode,
+        isCreating: true,
       },
     });
   };
 
   const handleJoinRoom = () => {
     if (!playerName.trim() || !roomId.trim()) {
-      alert('请输入玩家名和房间ID');
+      alert('请填写玩家名称和房间ID');
       return;
     }
-
-    navigate('/werewolf/game', {
+    // 导航到联机房间，传递加入房间所需信息
+    navigate('/werewolf/multiplayer', {
       state: {
-        action: 'join',
         playerName,
         roomId,
+        isJoining: true,
       },
     });
   };
@@ -62,11 +75,15 @@ export default function WerewolfLobby() {
     <div className="min-h-screen relative flex items-center justify-center overflow-hidden bg-[#030014]">
       {/* Background with Overlay */}
       <div className="absolute inset-0 z-0">
-        <img
-          src="/images/werewolf-bg-v2.png"
-          alt="Background"
-          className="w-full h-full object-cover opacity-30"
-        />
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="w-full h-full object-cover opacity-40"
+        >
+          <source src="/videos/video_1764412084943.mp4" type="video/mp4" />
+        </video>
         <div className="absolute inset-0 bg-gradient-to-b from-[#030014]/80 via-[#030014]/60 to-[#030014]/90 backdrop-blur-[2px]" />
         <div className="absolute inset-0 bg-[url('/grid.svg')] bg-center opacity-10" />
       </div>
@@ -100,42 +117,70 @@ export default function WerewolfLobby() {
                 </p>
               </motion.div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-3xl">
-                {/* Create Room Card */}
+              <div className="w-full max-w-2xl space-y-6">
+                {/* AI 快速对局 */}
                 <motion.div
                   variants={cardVariants}
+                  initial="hidden"
+                  animate="visible"
                   whileHover="hover"
-                  onClick={() => setMode('create')}
-                  className="group cursor-pointer relative overflow-hidden rounded-3xl bg-black/40 border border-white/10 backdrop-blur-xl p-8 hover:border-purple-500/50 transition-colors duration-300"
+                  className="group relative overflow-hidden rounded-3xl bg-black/40 border border-white/10 backdrop-blur-xl p-6 hover:border-purple-500/50 transition-colors duration-300"
                 >
-                  <div className="absolute inset-0 bg-gradient-to-br from-purple-600/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                  <div className="relative z-10 flex flex-col items-center gap-6">
-                    <div className="w-20 h-20 rounded-2xl bg-purple-500/20 flex items-center justify-center border border-purple-500/30 group-hover:scale-110 transition-transform duration-300 shadow-[0_0_30px_rgba(168,85,247,0.2)]">
-                      <Plus className="w-10 h-10 text-purple-300" />
+                  <div className="relative z-10 flex items-center justify-between">
+                    <div>
+                      <h3 className="text-xl font-bold text-white mb-1">AI 快速对局</h3>
+                      <p className="text-gray-400 text-sm">与AI玩家对战，即开即玩</p>
                     </div>
-                    <div className="text-center">
-                      <h2 className="text-2xl font-bold text-white mb-2">创建房间</h2>
-                      <p className="text-gray-400 text-sm">建立新的游戏对局，邀请好友或 AI 玩家加入</p>
-                    </div>
+                    <Button
+                      onClick={handleStartMultiplayerGame}
+                      className="h-11 px-8 bg-purple-600 hover:bg-purple-700 text-white shadow-[0_0_20px_rgba(147,51,234,0.4)]"
+                    >
+                      立即开始
+                    </Button>
                   </div>
                 </motion.div>
 
-                {/* Join Room Card */}
+                {/* 创建联机房间 */}
                 <motion.div
                   variants={cardVariants}
+                  initial="hidden"
+                  animate="visible"
                   whileHover="hover"
-                  onClick={() => setMode('join')}
-                  className="group cursor-pointer relative overflow-hidden rounded-3xl bg-black/40 border border-white/10 backdrop-blur-xl p-8 hover:border-blue-500/50 transition-colors duration-300"
+                  className="group relative overflow-hidden rounded-3xl bg-black/40 border border-white/10 backdrop-blur-xl p-6 hover:border-blue-500/50 transition-colors duration-300"
                 >
-                  <div className="absolute inset-0 bg-gradient-to-br from-blue-600/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                  <div className="relative z-10 flex flex-col items-center gap-6">
-                    <div className="w-20 h-20 rounded-2xl bg-blue-500/20 flex items-center justify-center border border-blue-500/30 group-hover:scale-110 transition-transform duration-300 shadow-[0_0_30px_rgba(59,130,246,0.2)]">
-                      <LogIn className="w-10 h-10 text-blue-300" />
+                  <div className="relative z-10 flex items-center justify-between">
+                    <div>
+                      <h3 className="text-xl font-bold text-white mb-1">创建联机房间</h3>
+                      <p className="text-gray-400 text-sm">邀请好友加入，真人对战</p>
                     </div>
-                    <div className="text-center">
-                      <h2 className="text-2xl font-bold text-white mb-2">加入房间</h2>
-                      <p className="text-gray-400 text-sm">输入房间 ID，快速加入正在进行的对局</p>
+                    <Button
+                      onClick={() => setMode('create')}
+                      className="h-11 px-8 bg-blue-600 hover:bg-blue-700 text-white shadow-[0_0_20px_rgba(37,99,235,0.4)]"
+                    >
+                      创建房间
+                    </Button>
+                  </div>
+                </motion.div>
+
+                {/* 加入房间 */}
+                <motion.div
+                  variants={cardVariants}
+                  initial="hidden"
+                  animate="visible"
+                  whileHover="hover"
+                  className="group relative overflow-hidden rounded-3xl bg-black/40 border border-white/10 backdrop-blur-xl p-6 hover:border-green-500/50 transition-colors duration-300"
+                >
+                  <div className="relative z-10 flex items-center justify-between">
+                    <div>
+                      <h3 className="text-xl font-bold text-white mb-1">加入现有房间</h3>
+                      <p className="text-gray-400 text-sm">输入房间ID，加入好友的游戏</p>
                     </div>
+                    <Button
+                      onClick={() => setMode('join')}
+                      className="h-11 px-8 bg-green-600 hover:bg-green-700 text-white shadow-[0_0_20px_rgba(34,197,94,0.4)]"
+                    >
+                      加入房间
+                    </Button>
                   </div>
                 </motion.div>
               </div>
@@ -184,8 +229,8 @@ export default function WerewolfLobby() {
                           key={num}
                           onClick={() => setSelectedMode(num as 6 | 9 | 12)}
                           className={`relative p-4 rounded-xl border transition-all duration-300 flex flex-col items-center gap-2 ${selectedMode === num
-                              ? 'border-purple-500 bg-purple-500/20 text-white shadow-[0_0_20px_rgba(168,85,247,0.3)]'
-                              : 'border-white/10 bg-white/5 text-gray-400 hover:bg-white/10 hover:border-white/20'
+                            ? 'border-purple-500 bg-purple-500/20 text-white shadow-[0_0_20px_rgba(168,85,247,0.3)]'
+                            : 'border-white/10 bg-white/5 text-gray-400 hover:bg-white/10 hover:border-white/20'
                             }`}
                         >
                           <span className="text-2xl font-bold">{num}人</span>

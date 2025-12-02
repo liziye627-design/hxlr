@@ -1,103 +1,93 @@
-# 欢迎使用你的秒哒应用代码包
-秒哒应用链接
-    URL:https://www.miaoda.cn/projects/app-7gn2vl8qe60x
+# 项目README
 
-## 介绍
+**项目概览**
+- 前端使用 `Vite + React + TypeScript`，端口 `5200`。
+- 后端为 `Node.js + Express + Socket.IO + WS` 游戏服务，端口默认 `3001`。
+- 集成 `Supabase` 数据与鉴权，以及 AI 相关能力（LangChain/LangGraph）。
+- 提供剧本杀/狼人杀等玩法支持，含房间管理、实时通信与AI叙事管理。
 
-项目介绍
+**核心功能**
+- 实时房间与玩家管理，支持 Socket.IO 与原生 WebSocket。
+- 剧本杀（Jubensha）上传解析、房间流程控制与事件处理。
+- AI 剧本角色/旁白/法官等智能体编排与知识库管理。
+- 前后端联动的开发模式，一键并行启动前端与游戏服务。
 
-## 目录结构
+**技术栈**
+- 前端：`React 18`、`Vite 5`、`TypeScript 5`、`TailwindCSS`、`Radix UI`。
+- 后端：`Express`、`Socket.IO`、`WS`、`LangChain/LangGraph`、`Supabase`。
+- 质量工具：`Biome`（lint/format）、`Vitest`（测试）、`TypeScript` 类型检查。
 
+**目录结构（简要）**
 ```
-├── README.md # 说明文档
-├── components.json # 组件库配置
-├── eslint.config.js # eslint 配置
-├── index.html # 入口文件
-├── package.json # 包管理
-├── postcss.config.js # postcss 配置
-├── public # 静态资源目录
-│   ├── favicon.png # 图标
-│   └── images # 图片资源
-├── src # 源码目录
-│   ├── App.tsx # 入口文件
-│   ├── components # 组件目录
-│   ├── context # 上下文目录
-│   ├── db # 数据库配置目录
-│   ├── hooks # 通用钩子函数目录
-│   ├── index.css # 全局样式
-│   ├── layout # 布局目录
-│   ├── lib # 工具库目录
-│   ├── main.tsx # 入口文件
-│   ├── routes.tsx # 路由配置
-│   ├── pages # 页面目录
-│   ├── services  # 数据库交互目录
-│   ├── types   # 类型定义目录
-├── tsconfig.app.json  # ts 前端配置文件
-├── tsconfig.json # ts 配置文件
-├── tsconfig.node.json # ts node端配置文件
-└── vite.config.ts # vite 配置文件
-```
-
-## 技术栈
-
-Vite、TypeScript、React、Supabase
-
-## 本地开发
-
-### 如何在本地编辑代码？
-
-您可以选择 [VSCode](https://code.visualstudio.com/Download) 或者您常用的任何 IDE 编辑器，唯一的要求是安装 Node.js 和 npm.
-
-### 环境要求
-
-```
-# Node.js ≥ 20
-# npm ≥ 10
-例如：
-# node -v   # v20.18.3
-# npm -v    # 10.8.2
+├── README.md
+├── index.html
+├── package.json
+├── vite.config.ts               # Vite 配置（端口 5200，路径别名）
+├── .env                         # 环境变量（前后端）
+├── src/
+│   ├── main.tsx                # React 入口（StrictMode）
+│   ├── App.tsx                 # 应用根组件
+│   ├── components/             # 组件库
+│   ├── pages/                  # 页面模块
+│   ├── server/                 # Node 游戏服务源码
+│   │   ├── index.ts            # Express + Socket.IO + WS 入口
+│   │   ├── RoomManager.ts      # 房间管理
+│   │   ├── SocketHandlers*.ts  # Socket 事件处理
+│   │   ├── jubensha/           # 剧本杀相关路由/WS管理/智能体
+│   │   └── services/           # 解析/AI/脚本分析等服务
+│   └── ...
+├── public/                     # 静态资源（图片/音频/视频等）
+└── scripts/                    # 数据导入、工具与测试脚本
 ```
 
-具体安装步骤如下：
+**环境要求**
+- `Node.js ≥ 20`、`npm ≥ 10`。
+- 前端默认运行于 `http://127.0.0.1:5200`，后端默认运行于 `http://127.0.0.1:3001`。
 
-### 在 Windows 上安装 Node.js
+**快速开始**
+- 安装依赖：`npm i`
+- 同时启动前端与后端：`npm run dev:full`
+- 仅前端：`npm run dev`
+- 仅后端（监视模式）：`npm run server:dev`
+- 构建前端产物：`npm run build`
+- 预览构建产物：`npm run preview` 或 `npm run serve`
 
-```
-# Step 1: 访问Node.js官网：https://nodejs.org/，点击下载后，会根据你的系统自动选择合适的版本（32位或64位）。
-# Step 2: 运行安装程序：下载完成后，双击运行安装程序。
-# Step 3: 完成安装：按照安装向导完成安装过程。
-# Step 4: 验证安装：在命令提示符（cmd）或IDE终端（terminal）中输入 node -v 和 npm -v 来检查 Node.js 和 npm 是否正确安装。
-```
+**关键脚本说明（来自 package.json）**
+- `dev`：启动 Vite，`--host 127.0.0.1 --port 5200`
+- `dev:full`：并行运行前端与 `src/server/index.ts`（`concurrently`）
+- `server:dev`：使用 `tsx watch` 监视并启动后端服务
+- `lint`：类型检查与 `Biome` 依赖声明校验
+- `format` / `format:check`：`Biome` 代码格式化/检查
 
-### 在 macOS 上安装 Node.js
+**环境变量（.env）**
+- 前端（以 `VITE_` 开头，由 Vite 注入）：
+  - `VITE_APP_ID`：应用标识
+  - `VITE_SUPABASE_URL`：Supabase 服务地址
+  - `VITE_SUPABASE_ANON_KEY`：Supabase 公钥（请在生产环境妥善保管）
+  - `VITE_DEEPSEEK_API_KEY`、`VITE_DEEPSEEK_API_URL`、`VITE_DEEPSEEK_MODEL`：AI 接口配置
+- 后端：
+  - `PORT`：后端服务端口（可选，默认 `3001`）
+  - `FRONTEND_ORIGIN`：允许的前端来源（用于 CORS）
+  - `DEEPSEEK_API_KEY`、`DEEPSEEK_API_URL`、`DEEPSEEK_MODEL`：AI 接口配置
+- 安全提示：勿在公开仓库提交真实密钥；生产环境请改用安全的密钥管理。
 
-```
-# Step 1: 使用Homebrew安装（推荐方法）：打开终端。输入命令brew install node并回车。如果尚未安装Homebrew，需要先安装Homebrew，
-可以通过在终端中运行如下命令来安装：
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-或者使用官网安装程序：访问Node.js官网。下载macOS的.pkg安装包。打开下载的.pkg文件，按照提示完成安装。
-# Step 2: 验证安装：在命令提示符（cmd）或IDE终端（terminal）中输入 node -v 和 npm -v 来检查 Node.js 和 npm 是否正确安装。
-```
+**后端通信与路由**
+- 健康检查：`GET /health`
+- 剧本杀 API：`/api/jubensha/*`
+- WebSocket（剧本杀）：路径以 `/jubensha/:roomId/:playerId` 开头，由 `JubenshaWebSocketManager` 处理。
+- Socket.IO：用于通用房间与脚本场景管理，见 `SocketHandlersEnhanced` 与 `ScriptSocketHandlers`。
 
-### 安装完后按照如下步骤操作：
+**开发建议**
+- 在本地同时运行前后端，便于调试 Socket 与 API 流程。
+- 若前端非默认端口或来源，请在 `.env` 设置 `FRONTEND_ORIGIN` 以放通 CORS。
+- 使用 `Biome` 保持一致的代码风格；提交前运行 `npm run lint` 与 `npm run format:check`。
 
-```
-# Step 1: 下载代码包
-# Step 2: 解压代码包
-# Step 3: 用IDE打开代码包，进入代码目录
-# Step 4: IDE终端输入命令行，安装依赖：npm i
-# Step 5: IDE终端输入命令行，启动开发服务器：npm run dev -- --host 127.0.0.1
-```
+**常见问题**
+- 端口被占用：修改 `vite.config.ts` 或 `.env` 中 `PORT`，并同步更新 CORS 来源。
+- Socket 连接失败：检查浏览器控制台与后端日志，确认 CORS 与端口配置一致。
+- AI 接口报错：确认 `.env` 中的接口地址与密钥有效，避免前端暴露真实密钥。
 
-### 如何开发后端服务？
-
-配置环境变量，安装相关依赖
-如需使用数据库，请使用 supabase 官方版本或自行部署开源版本的 Supabase
-
-### 如何配置应用中的三方 API？
-
-具体三方 API 调用方法，请参考帮助文档：[源码导出](https://cloud.baidu.com/doc/MIAODA/s/Xmewgmsq7)，了解更多详细内容。
-
-## 了解更多
-
-您也可以查看帮助文档：[源码导出](https://cloud.baidu.com/doc/MIAODA/s/Xmewgmsq7)，了解更多详细内容。
+**相关文档**
+- `PROJECT_STRUCTURE.md`、`DIRECTORY_STRUCTURE.md`：更详细的项目结构说明。
+- `WEREWOLF_*` 与 `README_Jubensha_Integration.md`：玩法与集成说明。
+- `QUICKSTART.md`、`USAGE.md`：快速上手与使用指南。

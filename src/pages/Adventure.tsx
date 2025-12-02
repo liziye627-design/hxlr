@@ -144,58 +144,66 @@ export default function Adventure() {
 
             <Card className="p-8 mb-8">
               <h2 className="text-2xl font-bold mb-6 text-center">选择你的向导</h2>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {companions.map((companion) => (
                   <button
                     key={companion.id}
                     onClick={() => setSelectedCompanion(companion)}
-                    className={`p-6 rounded-xl border-2 transition-all ${
+                    className={`relative group p-6 rounded-2xl border transition-all duration-300 overflow-hidden ${
                       selectedCompanion?.id === companion.id
-                        ? 'border-primary bg-primary/5'
-                        : 'border-border hover:border-primary/50'
+                        ? 'border-primary bg-primary/10 ring-2 ring-primary/20 shadow-xl scale-[1.02]'
+                        : 'border-border hover:border-primary/50 hover:bg-card/50 hover:shadow-lg hover:-translate-y-1'
                     }`}
                   >
-                    <img
-                      src={companion.avatar_url || ''}
-                      alt={companion.name}
-                      className="w-20 h-20 rounded-full mx-auto mb-3"
-                    />
-                    <h3 className="font-bold mb-1">{companion.name}</h3>
-                    <p className="text-xs text-muted-foreground line-clamp-2">
-                      {companion.description}
-                    </p>
+                    <div className="absolute inset-0 bg-gradient-to-br from-transparent to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    
+                    <div className="relative z-10">
+                      <div className={`w-24 h-24 rounded-full mx-auto mb-4 p-1 transition-all duration-500 ${
+                         selectedCompanion?.id === companion.id ? 'bg-gradient-to-r from-primary to-purple-500' : 'bg-transparent'
+                      }`}>
+                        <img
+                          src={companion.avatar_url || ''}
+                          alt={companion.name}
+                          className="w-full h-full rounded-full object-cover border-2 border-background"
+                        />
+                      </div>
+                      <h3 className="text-lg font-bold mb-2">{companion.name}</h3>
+                      <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed">
+                        {companion.description}
+                      </p>
+                    </div>
                   </button>
                 ))}
               </div>
             </Card>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-              <Card className="p-6 text-center">
-                <div className="text-4xl mb-3">🗺️</div>
-                <h3 className="font-bold mb-2">自由探索</h3>
-                <p className="text-sm text-muted-foreground">通过对话选择推动故事发展</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+              <Card className="p-6 text-center bg-card/50 border-white/10 hover:bg-card/80 transition-colors">
+                <div className="text-4xl mb-4 bg-clip-text text-transparent bg-gradient-to-br from-blue-400 to-purple-600 animate-pulse">🗺️</div>
+                <h3 className="font-bold mb-2 text-lg">自由探索</h3>
+                <p className="text-sm text-muted-foreground">开放式世界，每一个选择都通向未知的领域</p>
               </Card>
-              <Card className="p-6 text-center">
-                <div className="text-4xl mb-3">🎭</div>
-                <h3 className="font-bold mb-2">多重结局</h3>
-                <p className="text-sm text-muted-foreground">你的选择决定故事走向</p>
+              <Card className="p-6 text-center bg-card/50 border-white/10 hover:bg-card/80 transition-colors">
+                <div className="text-4xl mb-4 bg-clip-text text-transparent bg-gradient-to-br from-amber-400 to-red-600 animate-pulse">🎭</div>
+                <h3 className="font-bold mb-2 text-lg">多重结局</h3>
+                <p className="text-sm text-muted-foreground">你的决定将编织出独一无二的传奇故事</p>
               </Card>
-              <Card className="p-6 text-center">
-                <div className="text-4xl mb-3">🤝</div>
-                <h3 className="font-bold mb-2">AI互动</h3>
-                <p className="text-sm text-muted-foreground">与AI NPC进行真实对话</p>
+              <Card className="p-6 text-center bg-card/50 border-white/10 hover:bg-card/80 transition-colors">
+                <div className="text-4xl mb-4 bg-clip-text text-transparent bg-gradient-to-br from-green-400 to-teal-600 animate-pulse">🤝</div>
+                <h3 className="font-bold mb-2 text-lg">AI深度互动</h3>
+                <p className="text-sm text-muted-foreground">与拥有鲜活个性的AI伙伴共同经历冒险</p>
               </Card>
             </div>
 
-            <div className="text-center">
+            <div className="text-center pb-12">
               <Button
                 size="lg"
                 onClick={startGame}
                 disabled={!selectedCompanion}
-                className="gradient-bg-primary border-0 text-lg px-12"
+                className="h-14 px-12 text-lg rounded-full gradient-bg-primary shadow-lg hover:shadow-primary/50 hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:hover:scale-100"
               >
-                <Play className="w-5 h-5 mr-2" />
-                开始冒险
+                <Play className="w-5 h-5 mr-2 fill-current" />
+                开始你的冒险
               </Button>
             </div>
           </div>
@@ -205,39 +213,47 @@ export default function Adventure() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <div className="border-b bg-card">
-        <div className="container mx-auto px-4 py-4">
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-background to-background/95">
+      <div className="border-b bg-background/80 backdrop-blur-md sticky top-0 z-10">
+        <div className="container mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Button variant="ghost" size="sm" onClick={() => setGameStarted(false)}>
+              <Button variant="ghost" size="sm" onClick={() => setGameStarted(false)} className="hover:bg-primary/10">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 退出冒险
               </Button>
-              <span className="font-medium">数字冒险</span>
+              <span className="font-medium text-lg hidden sm:inline-block bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-500">
+                数字冒险
+              </span>
             </div>
             {selectedCompanion && (
-              <div className="flex items-center gap-2">
-                <img
-                  src={selectedCompanion.avatar_url || ''}
-                  alt={selectedCompanion.name}
-                  className="w-8 h-8 rounded-full"
-                />
-                <span className="text-sm font-medium">{selectedCompanion.name}</span>
+              <div className="flex items-center gap-3 bg-secondary/50 px-3 py-1.5 rounded-full border border-border/50">
+                <div className="relative">
+                  <img
+                    src={selectedCompanion.avatar_url || ''}
+                    alt={selectedCompanion.name}
+                    className="w-8 h-8 rounded-full object-cover border border-border"
+                  />
+                  <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-background rounded-full"></span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-sm font-bold leading-none">{selectedCompanion.name}</span>
+                  <span className="text-[10px] text-muted-foreground leading-none mt-1">AI 向导</span>
+                </div>
               </div>
             )}
           </div>
         </div>
       </div>
 
-      <div className="flex-1 container mx-auto px-4 py-6">
-        <div className="h-[calc(100vh-200px)] bg-card rounded-xl border">
+      <div className="flex-1 container mx-auto px-4 py-4 md:py-6 max-w-5xl">
+        <div className="h-[calc(100vh-140px)] bg-card/30 rounded-2xl border border-white/5 shadow-2xl overflow-hidden backdrop-blur-sm">
           <ChatInterface
             messages={messages}
             onSendMessage={handleSendMessage}
             companion={selectedCompanion || undefined}
             isLoading={isLoading}
-            placeholder="输入你的行动或对话..."
+            placeholder={`告诉 ${selectedCompanion?.name} 你想做什么...`}
           />
         </div>
       </div>

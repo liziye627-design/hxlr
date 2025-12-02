@@ -1,35 +1,35 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Upload, FileText, Users, Clock, Play, Search, Sparkles, Star } from 'lucide-react';
+import { Upload, Users, Clock, Search, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { storyApi } from '@/db/api';
 import type { Story } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
+import { API_BASE } from '@/config/api';
 
 export default function JubenshaLobby() {
     const navigate = useNavigate();
     const [stories, setStories] = useState<Story[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
-    const [uploading, setUploading] = useState(false);
+    const [, setUploading] = useState(false);
     const [scriptFile, setScriptFile] = useState<File | null>(null);
 
     useEffect(() => {
-        loadStories();
-    }, []);
+        (async () => {
+            const fallbackScripts: Story[] = [
+                { id: 'local_school_rules', title: '第二十二条校规', description: '一所神秘学校的诡异校规，隐藏着不为人知的秘密...', category: '悬疑', cover_url: 'https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=400&h=600&fit=crop', min_players: 4, max_players: 7, story_data: { estimatedDuration: '90' } as any, is_premium: false, difficulty: 'normal', play_count: 0 } as any,
+                { id: 'local_heist', title: '收获日', description: '一场精心策划的行动，每个人都有自己的目的...', category: '犯罪', cover_url: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=400&h=600&fit=crop', min_players: 5, max_players: 7, story_data: { estimatedDuration: '90' } as any, is_premium: false, difficulty: 'hard', play_count: 0 } as any,
+                { id: 'local_psychoboy', title: '病娇男孩的精分日记', description: '一本日记，记录着扭曲的爱与执念...', category: '恐怖', cover_url: 'https://images.unsplash.com/photo-1509248961158-e54f6934749c?w=400&h=600&fit=crop', min_players: 4, max_players: 7, story_data: { estimatedDuration: '60' } as any, is_premium: false, difficulty: 'normal', play_count: 0 } as any,
+                { id: 'script_it_pennywise', title: '小丑回魂', description: '1989年德里镇，孩子们接连失踪。窝囊废俱乐部必须面对以恐惧为食的古老邪恶...', category: '恐怖', cover_url: 'https://images.unsplash.com/photo-1509557965875-b88c97052f0e?w=400&h=600&fit=crop', min_players: 4, max_players: 6, story_data: { estimatedDuration: '120' } as any, is_premium: true, difficulty: 'insane', play_count: 0 } as any,
+            ];
 
-    const loadStories = async () => {
-        try {
-            const data = await storyApi.getAllStories();
-            setStories(data);
-        } catch (error) {
-            console.error('Failed to load stories:', error);
-        } finally {
+            // 直接使用本地剧本列表
+            setStories(fallbackScripts);
             setLoading(false);
-        }
-    };
+        })();
+    }, []);
 
     const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -53,7 +53,7 @@ export default function JubenshaLobby() {
         try {
             const formData = new FormData();
             formData.append('script', scriptFile);
-            const response = await fetch('http://localhost:3001/api/jubensha/upload-script', {
+            const response = await fetch(`${API_BASE}/api/jubensha/upload`, {
                 method: 'POST',
                 body: formData,
             });
@@ -94,6 +94,25 @@ export default function JubenshaLobby() {
             insane: '地狱'
         };
         return map[difficulty] || difficulty;
+    };
+
+    const fixedTitles = ['第二十二条校规', 'K系列-觉醒', '收获日', '病娇男孩的精分日记', '纸妻', '小丑回魂'];
+    const params = 'q=80&auto=format&fit=crop&w=600&ixlib=rb-4.0.3';
+    const fixedCovers = [
+        '/source/script_covers/school_rules.jpg',
+        '/source/script_covers/k_awake.jpg',
+        '/source/script_covers/heist.jpg',
+        '/source/script_covers/psychoboy.jpg',
+        '/source/script_covers/paper_wife.jpg',
+        '/source/script_covers/it_pennywise.jpg',
+    ];
+    const fixedByTitle: Record<string, string> = {
+        '第二十二条校规': '/source/script_covers/school_rules.jpg',
+        'K系列-觉醒': '/source/script_covers/k_awake.jpg',
+        '收获日': '/source/script_covers/heist.jpg',
+        '病娇男孩的精分日记': '/source/script_covers/psychoboy.jpg',
+        '纸妻': '/source/script_covers/paper_wife.jpg',
+        '小丑回魂': '/source/script_covers/it_pennywise.jpg',
     };
 
     return (
@@ -159,14 +178,37 @@ export default function JubenshaLobby() {
                                 transition={{ duration: 0.3, delay: index * 0.05 }}
                                 whileHover={{ y: -10, transition: { duration: 0.2 } }}
                                 className="group cursor-pointer"
-                                onClick={() => navigate(`/script-murder/room/${story.id}`)} // Assuming direct room entry for now, or detail page
+                                onClick={() => {
+                                    // 特定剧本有专门的游戏页面
+                                    if (story.id === 'script_it_pennywise') {
+                                        navigate('/script-murder/it');
+                                    } else if (story.id === 'local_school_rules') {
+                                        navigate('/script-murder/school-rules');
+                                    } else if (story.id === 'local_heist') {
+                                        navigate('/script-murder/payday');
+                                    } else if (story.id === 'local_psychoboy') {
+                                        navigate('/script-murder/yandere');
+                                    } else {
+                                        navigate(`/script-murder/room/${story.id}`);
+                                    }
+                                }}
                             >
                                 <div className="relative aspect-[3/4] rounded-2xl overflow-hidden mb-4 shadow-2xl ring-1 ring-white/10 group-hover:ring-purple-500/50 transition-all duration-300">
-                                    <img
-                                        src={story.cover_url || `https://source.unsplash.com/random/400x600?mystery,${index}`}
-                                        alt={story.title}
-                                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                                    />
+                                    {(() => {
+                                        const unsplashFallback = `https://images.unsplash.com/photo-1478720568477-152d9b164e26?${params}`;
+                                        const titleSrc = fixedByTitle[story.title];
+                                        const indexSrc = fixedCovers[index];
+                                        const coverSrc = titleSrc || story.cover_url || indexSrc || unsplashFallback;
+                                        const altText = story.title || fixedTitles[index] || '剧本封面';
+                                        return (
+                                            <img
+                                                src={coverSrc}
+                                                alt={altText}
+                                                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                                                onError={(e) => { e.currentTarget.src = unsplashFallback; }}
+                                            />
+                                        );
+                                    })()}
                                     <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-80 group-hover:opacity-90 transition-opacity" />
 
                                     {/* Top Badges */}
@@ -201,12 +243,7 @@ export default function JubenshaLobby() {
                                         </p>
                                     </div>
 
-                                    {/* Play Button Overlay */}
-                                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                                        <div className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 transform scale-50 group-hover:scale-100 transition-transform duration-300 delay-100">
-                                            <Play className="w-8 h-8 text-white fill-white ml-1" />
-                                        </div>
-                                    </div>
+                                    
                                 </div>
                             </motion.div>
                         ))}
@@ -226,7 +263,7 @@ export default function JubenshaLobby() {
                         variant="outline"
                         size="lg"
                         className="rounded-full border-white/20 bg-white/5 hover:bg-white/10 text-white px-8 py-6 h-auto gap-3 group"
-                        onClick={() => navigate('/scriptmurder/upload')}
+                        onClick={() => navigate('/script-murder/upload')}
                     >
                         <div className="p-2 rounded-full bg-purple-500/20 group-hover:bg-purple-500/30 transition-colors">
                             <Upload className="w-6 h-6 text-purple-400" />

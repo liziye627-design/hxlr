@@ -46,6 +46,10 @@ export class AgentRepository {
       }, { onConflict: 'script_id, character_name' });
 
     if (error) {
+      if ((error as any).code === '42P01' || /relation\s+"public\.ai_agents"\s+does\s+not\s+exist/i.test(String(error.message))) {
+        console.warn('ai_agents table missing, skipping saveAgent for development environment');
+        return;
+      }
       console.error('Error saving agent:', error);
     }
   }
@@ -71,6 +75,10 @@ export class AgentRepository {
       .order('created_at', { ascending: true });
 
     if (error) {
+      if ((error as any).code === '42P01' || /relation\s+"public\.ai_agents"\s+does\s+not\s+exist/i.test(String(error.message))) {
+        console.warn('ai_agents table missing, returning empty agents list');
+        return [];
+      }
       console.error('Error loading agents:', error);
       return [];
     }
@@ -100,7 +108,14 @@ export class AgentRepository {
       .eq('is_active', true)
       .single();
 
-    if (error || !data) return null;
+    if (error) {
+      if ((error as any).code === '42P01' || /relation\s+"public\.ai_agents"\s+does\s+not\s+exist/i.test(String(error.message))) {
+        console.warn('ai_agents table missing, getAgentById returns null');
+        return null;
+      }
+      return null;
+    }
+    if (!data) return null;
 
     return {
       id: data.id,
@@ -120,23 +135,31 @@ export class AgentRepository {
    * 删除Agent
    */
   async deleteAgent(agentId: string): Promise<void> {
-    await supabase
+    const { error } = await supabase
       .from('ai_agents')
       .update({ is_active: false })
       .eq('id', agentId);
+    if (error) {
+      if ((error as any).code === '42P01') return;
+      console.error('Error deleting agent:', error);
+    }
   }
 
   /**
    * 更新Agent的System Prompt
    */
   async updateSystemPrompt(agentId: string, newPrompt: string): Promise<void> {
-    await supabase
+    const { error } = await supabase
       .from('ai_agents')
       .update({
         system_prompt: newPrompt,
         updated_at: new Date().toISOString()
       })
       .eq('id', agentId);
+    if (error) {
+      if ((error as any).code === '42P01') return;
+      console.error('Error updating system prompt:', error);
+    }
   }
 }
 

@@ -1,0 +1,13 @@
+version: "3.9"
+services:
+  werewolf-server:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - FRONTEND_ORIGIN=https://traeapp-7gn2vl8qe60xp2ip.vercel.app
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - DEEPSEEK_API_URL=https://api.siliconflow.cn/v1/chat/completions

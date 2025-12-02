@@ -90,24 +90,14 @@ export default function Home() {
             </Badge>
 
             <h1 className="text-7xl md:text-9xl font-bold tracking-tighter mb-8 bg-clip-text text-transparent bg-gradient-to-b from-white via-white to-white/30">
-              NEXUS
+              幻心旅人
             </h1>
 
             <p className="text-2xl md:text-3xl text-gray-400 mb-12 font-light tracking-wide">
               当 AI 遇见无限想象
             </p>
 
-            <motion.div
-              animate={{ y: [0, 10, 0] }}
-              transition={{ duration: 2, repeat: Infinity }}
-              className="absolute bottom-12 left-1/2 -translate-x-1/2 cursor-pointer"
-              onClick={() => scrollToSection(1)}
-            >
-              <div className="flex flex-col items-center gap-2 text-white/50 hover:text-white transition-colors">
-                <span className="text-sm uppercase tracking-widest">探索世界</span>
-                <ChevronDown className="w-6 h-6" />
-              </div>
-            </motion.div>
+            
           </motion.div>
         </div>
       </FullScreenSection>

@@ -104,7 +104,15 @@ export class TTSService {
     }
 
     public speak(text: string, playerId: string, opts?: { role?: string }) {
-
+        console.log(`[TTS] speak() called: playerId=${playerId}, text="${text.substring(0, 30)}...", role=${opts?.role}`);
+        console.log(`[TTS] Available voices: ${this.voices.length}, synthesis paused: ${this.synthesis.paused}, speaking: ${this.synthesis.speaking}`);
+        
+        // 确保语音列表已加载
+        if (this.voices.length === 0) {
+            this.loadVoices();
+            console.log(`[TTS] Reloaded voices: ${this.voices.length}`);
+        }
+        
         const utterance = new SpeechSynthesisUtterance(text);
         let voice: SpeechSynthesisVoice | null = null
         let pitchFromMap: number | undefined
@@ -123,16 +131,32 @@ export class TTSService {
 
         if (voice) {
             utterance.voice = voice;
+            console.log(`[TTS] Using voice: ${voice.name} (${voice.lang})`);
+        } else {
+            console.log(`[TTS] No voice selected, using default`);
         }
 
         if (typeof pitchFromMap === 'number') utterance.pitch = pitchFromMap
         utterance.rate = typeof rateFromMap === 'number' ? rateFromMap : 1.0
 
-        utterance.onstart = () => this.notify(true, text, playerId);
-        utterance.onend = () => this.notify(false, text, playerId);
-        utterance.onerror = () => this.notify(false, text, playerId);
+        utterance.onstart = () => {
+            console.log(`[TTS] Started speaking: "${text.substring(0, 20)}..."`);
+            this.notify(true, text, playerId);
+        };
+        utterance.onend = () => {
+            console.log(`[TTS] Finished speaking`);
+            this.notify(false, text, playerId);
+        };
+        utterance.onerror = (event) => {
+            console.error(`[TTS] Error:`, event.error);
+            this.notify(false, text, playerId);
+        };
 
+        // 取消之前的语音（避免队列堆积）
+        // this.synthesis.cancel();
+        
         this.synthesis.speak(utterance);
+        console.log(`[TTS] Queued for speaking, pending: ${this.synthesis.pending}`);
     }
 
     public stop() {

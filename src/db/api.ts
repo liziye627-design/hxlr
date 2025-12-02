@@ -34,6 +34,14 @@ export const userApi = {
       .maybeSingle();
 
     if (error) {
+      if ((error as any)?.code === '23505') {
+        const { data: existingAfter } = await supabase
+          .from('user_profiles')
+          .select('*')
+          .eq('id', userId)
+          .maybeSingle();
+        return existingAfter || null;
+      }
       console.error('Error creating user:', error);
       return null;
     }

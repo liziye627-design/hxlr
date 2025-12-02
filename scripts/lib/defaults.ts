@@ -7,12 +7,13 @@
 /**
  * Default cover URLs by category from Unsplash
  */
+const params = 'q=80&auto=format&fit=crop&w=400&ixlib=rb-4.0.3';
 const DEFAULT_COVERS: Record<string, string> = {
-  horror: 'https://images.unsplash.com/photo-1509248961725-aec71f4e848e?w=400',
-  mystery: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=400',
-  romance: 'https://images.unsplash.com/photo-1516414447565-b14be0adf13e?w=400',
-  comedy: 'https://images.unsplash.com/photo-1527224857830-43a7acc85260?w=400',
-  thriller: 'https://images.unsplash.com/photo-1478720568477-152d9b164e26?w=400',
+  horror: `https://images.unsplash.com/photo-1509248961725-aec71f4e848e?${params}`,
+  mystery: `https://images.unsplash.com/photo-1451187580459-43490279c0fa?${params}`,
+  romance: `https://images.unsplash.com/photo-1516414447565-b14be0adf13e?${params}`,
+  comedy: `https://images.unsplash.com/photo-1527224857830-43a7acc85260?${params}`,
+  thriller: `https://images.unsplash.com/photo-1478720568477-152d9b164e26?${params}`,
 };
 
 /**

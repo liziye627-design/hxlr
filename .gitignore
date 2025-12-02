@@ -14,6 +14,11 @@ output
 *.local
 package-lock.json
 
+# Environment files
+.env
+.env.*
+!.env.production.example
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -1,0 +1,315 @@
+{
+    "id": "official_murder_rainy_night",
+    "name": "雷雨夜的谋杀",
+    "description": "一个雷雨交加的夜晚，老爷神秘死在书房。每个人都有秘密，每个人都是嫌疑人...",
+    "difficulty": "简单",
+    "players_range": {
+        "min": 3,
+        "max": 6
+    },
+    "estimated_duration": "30-45分钟",
+    "tags": [
+        "悬疑",
+        "推理",
+        "经典"
+    ],
+    "cover_image": "/assets/scripts/rainy_night/cover.jpg",
+    "story_background": "豪门老爷突然暴毙，遗产继承成谜。雷雨夜，书房内，真相藏在每个人的谎言之中...",
+    "characters": [
+        {
+            "id": "doctor_li",
+            "name": "李医生",
+            "role": "嫌疑人",
+            "avatar": "/assets/scripts/rainy_night/avatar_doctor.png",
+            "personality_tags": [
+                "神经质",
+                "心虚",
+                "焦虑"
+            ],
+            "speaking_style": "结巴，重复词语，语气慌张",
+            "hidden_secret": "我在21:50篡改了遗嘱，把继承人从'张三'改成了'李四'。老爷发现后威胁要报警。",
+            "background_story": "老爷的私人医生，负责照顾老爷的健康。因欠下巨额赌债，铤而走险。",
+            "current_emotion": "极度紧张",
+            "goals": [
+                {
+                    "priority": 1,
+                    "description": "隐藏篡改遗嘱的事实",
+                    "sub_goals": [
+                        "转移话题",
+                        "编造不在场证明",
+                        "指控他人"
+                    ]
+                }
+            ],
+            "available_for_player": true,
+            "is_npc": false
+        },
+        {
+            "id": "butler_wang",
+            "name": "管家老王",
+            "role": "真凶",
+            "avatar": "/assets/scripts/rainy_night/avatar_butler.png",
+            "personality_tags": [
+                "阴沉",
+                "冷静",
+                "城府深"
+            ],
+            "speaking_style": "语速缓慢，措辞谨慎，声音沙哑",
+            "hidden_secret": "我在22:00用毒药毒死了老爷，因为他发现了我贪污公款20年的证据，明天就要报警。",
+            "background_story": "服侍老爷30年的管家，掌握家中所有秘密。表面忠诚，实则狡诈。",
+            "current_emotion": "表面平静，内心警惕",
+            "goals": [
+                {
+                    "priority": 1,
+                    "description": "隐瞒谋杀事实",
+                    "sub_goals": [
+                        "栽赃李医生",
+                        "销毁证据",
+                        "编造目击证词"
+                    ]
+                }
+            ],
+            "available_for_player": true,
+            "is_npc": false
+        },
+        {
+            "id": "detective",
+            "name": "林侦探",
+            "role": "调查者",
+            "avatar": "/assets/scripts/rainy_night/avatar_detective.png",
+            "personality_tags": [
+                "敏锐",
+                "理性",
+                "正义"
+            ],
+            "speaking_style": "言简意赅，逻辑清晰，喜欢提问",
+            "hidden_secret": "无（调查者身份）",
+            "background_story": "经验丰富的私家侦探，受老爷生前委托调查家中异常。",
+            "current_emotion": "专注",
+            "goals": [
+                {
+                    "priority": 1,
+                    "description": "查明真相",
+                    "sub_goals": [
+                        "询问所有嫌疑人",
+                        "分析物证",
+                        "重建案发过程"
+                    ]
+                }
+            ],
+            "available_for_player": true,
+            "is_npc": false
+        },
+        {
+            "id": "daughter",
+            "name": "张小姐",
+            "role": "受害者女儿",
+            "avatar": "/assets/scripts/rainy_night/avatar_daughter.png",
+            "personality_tags": [
+                "悲伤",
+                "焦虑",
+                "多疑"
+            ],
+            "speaking_style": "声音颤抖，经常哽咽",
+            "hidden_secret": "我知道父亲最近在修改遗嘱，但不知道具体内容。",
+            "background_story": "老爷的独生女，一直期待继承家产。",
+            "current_emotion": "悲伤+怀疑",
+            "goals": [
+                {
+                    "priority": 1,
+                    "description": "找出杀害父亲的凶手",
+                    "sub_goals": [
+                        "质问每个人",
+                        "保护遗产"
+                    ]
+                }
+            ],
+            "available_for_player": true,
+            "is_npc": false
+        },
+        {
+            "id": "maid",
+            "name": "女仆小梅",
+            "role": "目击者（NPC）",
+            "avatar": "/assets/scripts/rainy_night/avatar_maid.png",
+            "personality_tags": [
+                "胆小",
+                "诚实",
+                "善良"
+            ],
+            "speaking_style": "声音细小，语速快，经常道歉",
+            "hidden_secret": "我在21:55看到李医生在书房鬼鬼祟祟，好像在撕什么东西。",
+            "background_story": "新来的女仆，对豪门斗争一无所知。",
+            "current_emotion": "害怕",
+            "available_for_player": false,
+            "is_npc": true
+        }
+    ],
+    "scenes": [
+        {
+            "id": "study_night",
+            "name": "书房（雷雨夜）",
+            "description": "雷雨交加的夜晚，书房内昏暗的灯光照着散落的文件。窗外闪电划过，照亮了凌乱的桌面和倒在地上的茶杯。",
+            "background_image": "/assets/scripts/rainy_night/bg_study_night.jpg",
+            "bgm": "/assets/music/mystery_rain.mp3",
+            "lighting": "dark",
+            "weather": "rain",
+            "atmosphere": "紧张、压抑",
+            "key_objects": [
+                {
+                    "name": "撕碎的遗嘱",
+                    "state": "散落在桌子上，部分碎片已被烧毁",
+                    "clue_value": "High",
+                    "permission": "Public",
+                    "description": "遗嘱被撕成碎片，但仍能看出'李四'两个字。"
+                },
+                {
+                    "name": "红茶茶杯",
+                    "state": "倒在地上，茶水洒了一地",
+                    "clue_value": "High",
+                    "permission": "Public",
+                    "description": "半满的红茶，散发着淡淡的苦杏仁味（氰化物特征）。"
+                },
+                {
+                    "name": "老爷的尸体",
+                    "state": "倒在椅子上，面色发紫",
+                    "clue_value": "High",
+                    "permission": "Public",
+                    "description": "死亡时间约22:00，嘴唇发紫，疑似中毒。"
+                }
+            ],
+            "available_actions": [
+                "搜查房间",
+                "检查物证",
+                "询问在场人员"
+            ]
+        },
+        {
+            "id": "living_room",
+            "name": "客厅",
+            "description": "宽敞的客厅，众人聚集在这里接受调查。空气中弥漫着紧张的气氛。",
+            "background_image": "/assets/scripts/rainy_night/bg_living_room.jpg",
+            "bgm": "/assets/music/tense_ambient.mp3",
+            "lighting": "normal",
+            "weather": "rain",
+            "atmosphere": "压抑、对峙"
+        },
+        {
+            "id": "garden_morning",
+            "name": "花园（清晨）",
+            "description": "雨过天晴，花园里的露水还未散去。阳光洒在草地上，与昨夜的惨剧形成鲜明对比。",
+            "background_image": "/assets/scripts/rainy_night/bg_garden_morning.jpg",
+            "bgm": "/assets/music/peaceful_morning.mp3",
+            "lighting": "day",
+            "weather": "clear",
+            "atmosphere": "平静、反思"
+        }
+    ],
+    "timeline": [
+        {
+            "time": "21:30",
+            "event": "老爷在书房修改遗嘱",
+            "participants": [
+                "老爷"
+            ],
+            "scene": "study_night"
+        },
+        {
+            "time": "21:50",
+            "event": "李医生偷偷进入书房，篡改遗嘱",
+            "participants": [
+                "doctor_li"
+            ],
+            "scene": "study_night",
+            "clue": "遗嘱上的笔迹有两种"
+        },
+        {
+            "time": "21:55",
+            "event": "女仆小梅经过书房，看到李医生在撕纸",
+            "participants": [
+                "maid",
+                "doctor_li"
+            ],
+            "scene": "study_night",
+            "witness": "maid"
+        },
+        {
+            "time": "22:00",
+            "event": "管家老王给老爷送毒茶，老爷饮下后中毒身亡",
+            "participants": [
+                "butler_wang",
+                "老爷"
+            ],
+            "scene": "study_night",
+            "murder_method": "氰化物中毒"
+        },
+        {
+            "time": "22:15",
+            "event": "女仆发现老爷尸体，尖叫",
+            "participants": [
+                "maid"
+            ],
+            "scene": "study_night"
+        },
+        {
+            "time": "22:30",
+            "event": "林侦探到达现场，开始调查",
+            "participants": [
+                "detective"
+            ],
+            "scene": "study_night"
+        },
+        {
+            "time": "22:35",
+            "event": "所有人聚集在客厅接受询问",
+            "participants": [
+                "all"
+            ],
+            "scene": "living_room"
+        }
+    ],
+    "truth": {
+        "murderer": "butler_wang",
+        "method": "在红茶中投放氰化物",
+        "motive": "老爷发现管家贪污公款证据，威胁报警",
+        "key_evidence": [
+            "茶杯中的氰化物残留",
+            "管家衣袖上的茶渍（倒茶时沾上）",
+            "管家房间藏匿的贪污账本"
+        ]
+    },
+    "game_flow": {
+        "phases": [
+            {
+                "name": "案情介绍",
+                "duration": "5分钟",
+                "description": "DM介绍背景，展示案发现场",
+                "scene": "study_night"
+            },
+            {
+                "name": "角色自述",
+                "duration": "10分钟",
+                "description": "每个角色陈述自己的行踪和观察",
+                "scene": "living_room"
+            },
+            {
+                "name": "自由讨论",
+                "duration": "15分钟",
+                "description": "玩家互相质询，AI角色根据怀疑度调整策略",
+                "scene": "living_room"
+            },
+            {
+                "name": "投票指控",
+                "duration": "5分钟",
+                "description": "玩家投票指认凶手",
+                "scene": "living_room"
+            },
+            {
+                "name": "真相揭晓",
+                "duration": "5分钟",
+                "description": "DM公布真相和证据",
+                "scene": "garden_morning"
+            }
+        ]
+    }
+}

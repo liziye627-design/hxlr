@@ -41,7 +41,8 @@ export default function ReplayViewer() {
     useEffect(() => {
         if (!roomId) return;
 
-        const socket = io(import.meta.env.VITE_WS_URL || 'http://localhost:3001');
+        const socketBase = (import.meta as any)?.env?.VITE_WS_URL || `${typeof window !== 'undefined' ? window.location.protocol : 'http:'}//${typeof window !== 'undefined' ? window.location.hostname : '127.0.0.1'}:${(import.meta as any)?.env?.VITE_SOCKET_PORT || 3001}`;
+        const socket = io(socketBase);
         socketRef.current = socket;
 
         socket.emit('get_replay_data', { roomId }, (response: any) => {

@@ -302,7 +302,7 @@ export default function ScriptMurder() {
 
               <Card
                 className="border-2 border-dashed hover:border-primary/50 transition-all cursor-pointer"
-                onClick={() => navigate('/scriptmurder/upload')}
+                onClick={() => navigate('/script-murder/upload')}
               >
                 <CardContent className="p-12 text-center">
                   <Upload className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
@@ -312,7 +312,7 @@ export default function ScriptMurder() {
                   </p>
                   <Button size="lg" variant="outline" onClick={(e) => {
                     e.stopPropagation();
-                    navigate('/scriptmurder/upload');
+                    navigate('/script-murder/upload');
                   }}>
                     <Upload className="w-5 h-5 mr-2" />
                     进入上传页面

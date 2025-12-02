@@ -46,10 +46,12 @@ export default function MultiplayerGameRoom() {
     activeSpeakerId,
     speakerRemainingSeconds,
     aiThinkingIds,
+    prefetchingIds,
     speakerOrderIndex,
     speakerOrderTotal,
     nightHintTargetId,
     nightHintInfo,
+    streamingContent, // New streaming content from hook
     // Sheriff Election
     sheriffCandidates,
     applySheriff,
@@ -66,6 +68,7 @@ export default function MultiplayerGameRoom() {
   const { playSound, toggleMute } = useSoundEffects();
   const { activeSpeeches } = usePlayerSpeeches();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const chatEndRef = useRef<HTMLDivElement>(null);
   const lastSpokenMessageIdRef = useRef<string | null>(null);
   const prevPhaseRef = useRef<string | null>(null);
   const [view, setView] = useState<'lobby' | 'create' | 'join' | 'game'>('lobby');
@@ -88,6 +91,7 @@ export default function MultiplayerGameRoom() {
   const [isRecording, setIsRecording] = useState(false);
   const sttSupported = typeof window !== 'undefined' && ((window as any).webkitSpeechRecognition || (window as any).SpeechRecognition);
   const [latestSpeeches, setLatestSpeeches] = useState<Record<string, string>>({});
+
   const fallbackMessages = useMemo(() => {
     if (!roomState) return [] as Array<{ id: string; senderId: string; senderName: string; content: string; type?: 'speech' | 'chat' | 'system' }>;
     const logs = (roomState.gameLog || []).filter(l => l.event === 'speech' && l.details?.content)
@@ -110,6 +114,7 @@ export default function MultiplayerGameRoom() {
       : []
     return [...speechMsgs, ...wolfMsgs]
   }, [roomState?.gameLog])
+
   const seerHistory = useMemo((): SeerCheckResult[] => {
     if (!roomState) return []
     return deriveSeerChecks(roomState) as SeerCheckResult[]
@@ -120,6 +125,11 @@ export default function MultiplayerGameRoom() {
     mode?: 6 | 9 | 12;
     aiPersonas?: string[];
     autoStart?: boolean;
+    playerName?: string;
+    roomName?: string;
+    roomId?: string;
+    isCreating?: boolean;
+    isJoining?: boolean;
   } | null;
 
   // 监听阶段变化并播放音效和旁白
@@ -159,13 +169,28 @@ export default function MultiplayerGameRoom() {
   // 处理从Lobby传来的配置
   useEffect(() => {
     if (lobbyConfig && connected && !roomState) {
-      // 自动设置配置
-      setPlayerCount(lobbyConfig.mode || 6);
-      setPlayerName('玩家1');
-      setRoomName(`${lobbyConfig.mode}人局 - ${Date.now()}`);
-
-      // 自动创建房间并补位AI
-      autoCreateAndFillAI();
+      // AI快速对局模式
+      if (lobbyConfig.autoStart && lobbyConfig.mode) {
+        setPlayerCount(lobbyConfig.mode || 6);
+        setPlayerName(lobbyConfig.playerName || '玩家1');
+        setRoomName(`${lobbyConfig.mode}人局 - ${Date.now()}`);
+        // 自动创建房间并补位AI
+        autoCreateAndFillAI();
+      }
+      // 手动创建房间模式
+      else if (lobbyConfig.isCreating && lobbyConfig.playerName && lobbyConfig.roomName) {
+        setPlayerCount(lobbyConfig.mode || 6);
+        setPlayerName(lobbyConfig.playerName);
+        setRoomName(lobbyConfig.roomName);
+        // 创建房间但不自动补位AI，等待真人玩家加入
+        handleCreateRoom(lobbyConfig.roomName, lobbyConfig.playerName, lobbyConfig.mode);
+      }
+      // 手动加入房间模式
+      else if (lobbyConfig.isJoining && lobbyConfig.playerName && lobbyConfig.roomId) {
+        setPlayerName(lobbyConfig.playerName);
+        // 直接加入指定房间
+        handleJoinRoom(lobbyConfig.roomId, lobbyConfig.playerName);
+      }
     }
   }, [lobbyConfig, connected, roomState]);
 
@@ -174,26 +199,34 @@ export default function MultiplayerGameRoom() {
   useEffect(() => {
     if (chatMessages.length > 0 && roomState) {
       const latestMessage = chatMessages[chatMessages.length - 1];
+      console.log(`[ChatMsg] 收到消息: type=${latestMessage.type}, sender=${latestMessage.senderName}, id=${latestMessage.id}`);
       if (latestMessage.type === 'speech') {
         if (latestMessage.senderId) {
           setLatestSpeeches(prev => ({ ...prev, [latestMessage.senderId]: latestMessage.content }));
         }
-        if (ttsEnabled && latestMessage.id !== lastSpokenMessageIdRef.current) {
+        const shouldSpeak = ttsEnabled && latestMessage.id !== lastSpokenMessageIdRef.current;
+        console.log(`[ChatMsg] TTS检查: ttsEnabled=${ttsEnabled}, isNewMsg=${latestMessage.id !== lastSpokenMessageIdRef.current}, shouldSpeak=${shouldSpeak}`);
+        if (shouldSpeak) {
           lastSpokenMessageIdRef.current = latestMessage.id;
           const role = roomState.players.find(p => p.id === latestMessage.senderId)?.role || 'villager'
+          console.log(`[ChatMsg] 调用TTS: role=${role}, content="${latestMessage.content.substring(0, 30)}..."`);
           tts.speak(latestMessage.content, latestMessage.senderId, { role });
         }
       }
     }
   }, [chatMessages, roomState, ttsEnabled]);
 
-  // 自动滚动到日志底部
+  // 自动滚动到日志底部 (包括流式输出)
   useEffect(() => {
     if (scrollAreaRef.current) {
       const viewport = scrollAreaRef.current.querySelector('[data-slot="scroll-area-viewport"]') as HTMLElement | null;
       if (viewport) viewport.scrollTop = viewport.scrollHeight;
     }
-  }, [chatMessages]);
+    // Also scroll when streaming content updates
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [chatMessages, streamingContent]);
 
   // Show role card when role is assigned
   useEffect(() => {
@@ -219,8 +252,12 @@ export default function MultiplayerGameRoom() {
     }
   };
 
-  const handleCreateRoom = async () => {
-    if (!roomName || !playerName) {
+  const handleCreateRoom = async (overrideRoomName?: string, overridePlayerName?: string, overrideMode?: 6 | 9 | 12) => {
+    const rName = overrideRoomName || roomName;
+    const pName = overridePlayerName || playerName;
+    const pCount = overrideMode || playerCount;
+
+    if (!rName || !pName) {
       toast({
         title: '错误',
         description: '请填写房间名和玩家名',
@@ -230,7 +267,7 @@ export default function MultiplayerGameRoom() {
     }
 
     try {
-      const { roomId, playerId } = await createRoom(roomName, playerName, playerCount);
+      const { roomId, playerId } = await createRoom(rName, pName, pCount);
       setCurrentPlayerId(playerId);
       setView('game');
       toast({
@@ -246,8 +283,10 @@ export default function MultiplayerGameRoom() {
     }
   };
 
-  const handleJoinRoom = async (roomId: string) => {
-    if (!playerName) {
+  const handleJoinRoom = async (roomId: string, overridePlayerName?: string) => {
+    const pName = overridePlayerName || playerName;
+
+    if (!pName) {
       toast({
         title: '错误',
         description: '请填写玩家名',
@@ -257,7 +296,7 @@ export default function MultiplayerGameRoom() {
     }
 
     try {
-      const { playerId } = await joinRoom(roomId, playerName);
+      const { playerId } = await joinRoom(roomId, pName);
       setCurrentPlayerId(playerId);
       setView('game');
       toast({
@@ -609,7 +648,7 @@ export default function MultiplayerGameRoom() {
                   <option value={9}>9 人局</option>
                   <option value={12}>12 人局</option>
                 </select>
-                <Button onClick={handleCreateRoom} className="w-full" disabled={!connected}>
+                <Button onClick={() => handleCreateRoom()} className="w-full" disabled={!connected}>
                   <Users className="w-4 h-4 mr-2" />
                   创建房间
                 </Button>
@@ -746,6 +785,7 @@ export default function MultiplayerGameRoom() {
               orderIndex={speakerOrderIndex}
               orderTotal={speakerOrderTotal}
               currentSpeakerName={roomState.players.find(p => p.id === activeSpeakerId)?.name || null}
+              isCurrentSpeakerAI={roomState.players.find(p => p.id === activeSpeakerId)?.type === 'ai'}
             />
           )}
 
@@ -755,10 +795,16 @@ export default function MultiplayerGameRoom() {
                 {(roomState.currentSpeakerOrder || []).map((pid) => {
                   const p = roomState.players.find(x => x.id === pid);
                   const isCurrent = pid === activeSpeakerId;
-                  const done = !!p?.hasSpokenThisRound;
+                  const done = !!(p as any)?.hasSpokenThisRound;
+                  const isPrefetching = prefetchingIds.has(pid);
                   return (
-                    <div key={pid} className={`px-2 py-1 rounded text-xs border ${isCurrent ? 'bg-yellow-700 text-white border-yellow-600' : done ? 'bg-green-900 text-green-200 border-green-700' : 'bg-slate-700 text-slate-200 border-slate-600'}`}>
-                      {p?.position ?? '?'}号 {p?.name ?? ''} {done ? '✓' : isCurrent ? '●' : ''}
+                    <div key={pid} className={`px-2 py-1 rounded text-xs border transition-all ${
+                      isCurrent ? 'bg-yellow-700 text-white border-yellow-600 animate-pulse' 
+                      : done ? 'bg-green-900 text-green-200 border-green-700' 
+                      : isPrefetching ? 'bg-blue-900/50 text-blue-200 border-blue-600' 
+                      : 'bg-slate-700 text-slate-200 border-slate-600'
+                    }`}>
+                      {p?.position ?? '?'}号 {p?.name ?? ''} {done ? '✓' : isCurrent ? '●' : isPrefetching ? '⏳' : ''}
                     </div>
                   );
                 })}
@@ -783,37 +829,37 @@ export default function MultiplayerGameRoom() {
               )}
 
               {(() => {
-                const nextId = roomState.currentSpeakerOrder?.[((roomState.currentSpeakerIndex ?? -1) + 1)] || null;
                 const displayThinkingIds = aiThinkingIds;
                 const recordingPlayerId = isRecording ? currentPlayerId : null;
                 return (
-              <RoundTableView
-                players={roomState.players}
-                currentPlayerId={currentPlayerId}
-                currentPlayerRole={roomState.myRole}
-                sheriffId={roomState.sheriffId}
-                activeSpeakerId={activeSpeakerId}
-                ttsSpeakingPlayerId={ttsSpeakingPlayerId}
-                recordingPlayerId={recordingPlayerId}
-                speakerRemainingSeconds={speakerRemainingSeconds}
-                aiThinkingIds={displayThinkingIds}
-                nextSpeakerId={roomState.currentSpeakerOrder?.[((roomState.currentSpeakerIndex ?? -1) + 1)] || null}
-                activeSpeeches={activeSpeeches}
-                seerCheckHistory={seerHistory}
-                  onPlayerClick={(player) => {
-                  // 讨论期：点击头像显示该玩家最近一次发言
-                  if (roomState.phase === 'DAY_DISCUSS' || roomState.phase === 'DAY_DEATH_LAST_WORDS') {
-                    const content = latestSpeeches[player.id] || '暂无发言';
-                    toast({ title: `${player.position}号(${player.name}) 最近发言`, description: content });
-                    return;
-                  }
-                  // 投票/技能期：按互动逻辑处理
-                  if (roomState.phase === 'DAY_VOTE') handleVote(player.id);
-                  else if (roomState.phase === 'HUNTER_SHOOT') handleHunterShoot(player.id);
-                  else if (roomState.phase === 'BADGE_TRANSFER') handleBadgeTransfer(player.id);
-                }}
-              />
-              ); })()}
+                  <RoundTableView
+                    players={roomState.players}
+                    currentPlayerId={currentPlayerId}
+                    currentPlayerRole={roomState.myRole}
+                    sheriffId={roomState.sheriffId}
+                    activeSpeakerId={activeSpeakerId}
+                    ttsSpeakingPlayerId={ttsSpeakingPlayerId}
+                    recordingPlayerId={recordingPlayerId}
+                    speakerRemainingSeconds={speakerRemainingSeconds}
+                    aiThinkingIds={displayThinkingIds}
+                    nextSpeakerId={roomState.currentSpeakerOrder?.[((roomState.currentSpeakerIndex ?? -1) + 1)] || null}
+                    activeSpeeches={activeSpeeches}
+                    seerCheckHistory={seerHistory}
+                    onPlayerClick={(player) => {
+                      // 讨论期：点击头像显示该玩家最近一次发言
+                      if (roomState.phase === 'DAY_DISCUSS' || roomState.phase === 'DAY_DEATH_LAST_WORDS') {
+                        const content = latestSpeeches[player.id] || '暂无发言';
+                        toast({ title: `${player.position}号(${player.name}) 最近发言`, description: content });
+                        return;
+                      }
+                      // 投票/技能期：按互动逻辑处理
+                      if (roomState.phase === 'DAY_VOTE') handleVote(player.id);
+                      else if (roomState.phase === 'HUNTER_SHOOT') handleHunterShoot(player.id);
+                      else if (roomState.phase === 'BADGE_TRANSFER') handleBadgeTransfer(player.id);
+                    }}
+                  />
+                );
+              })()}
 
               {/* Host Controls (Only in Waiting) */}
               {roomState.phase === 'WAITING' && isHost && (
@@ -872,15 +918,15 @@ export default function MultiplayerGameRoom() {
                 speakerRemainingSeconds={speakerRemainingSeconds}
               />
 
-              {/* 1. Game Log / Chat / Status Panel */}
-              <Card className="bg-slate-800/80 border-slate-700 h-[460px] flex flex-col">
-                <CardHeader className="py-3 border-b border-slate-700 bg-slate-900/50">
-                  <CardTitle className="text-white text-base flex items-center gap-2">
+              {/* 1. Game Log / Chat / Status Panel - 微信风格对话框 */}
+              <Card className="bg-slate-800/80 border-slate-700 flex flex-col overflow-hidden" style={{ height: '400px' }}>
+                <CardHeader className="py-2 px-3 border-b border-slate-700 bg-slate-900/50 flex-shrink-0">
+                  <CardTitle className="text-white text-sm flex items-center gap-2">
                     <MessageSquare className="w-4 h-4" />
                     {roomState.phase === 'WAITING' ? '等待大厅' : '游戏记录'}
                   </CardTitle>
                   {(roomState.phase === 'DAY_DISCUSS' || roomState.phase === 'DAY_DEATH_LAST_WORDS') && (
-                    <div className="mt-2 flex items-center justify-between text-xs">
+                    <div className="mt-1 flex items-center justify-between text-xs">
                       <div className="text-slate-400">
                         当前发言：{roomState.players.find(p => p.id === activeSpeakerId)?.name || '—'}
                         {roomState.players.find(p => p.id === activeSpeakerId)?.type === 'user' && (
@@ -890,17 +936,17 @@ export default function MultiplayerGameRoom() {
                         )}
                       </div>
                       {canCurrentPlayerSpeak && (
-                        <Button size="sm" variant="destructive" onClick={handleEndTurn} className="h-7 px-2">
+                        <Button size="sm" variant="destructive" onClick={handleEndTurn} className="h-6 px-2 text-xs">
                           跳过发言
                         </Button>
                       )}
                     </div>
                   )}
                 </CardHeader>
-                <CardContent className="flex-1 p-0 flex flex-col min-h-0">
-                  {/* Chat/Log Area */}
-                  <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
-                    <div className="space-y-3">
+                <CardContent className="flex-1 p-0 flex flex-col min-h-0 overflow-hidden">
+                  {/* Chat/Log Area - 固定高度可滚动 */}
+                  <ScrollArea className="flex-1 px-3 py-2" ref={scrollAreaRef}>
+                    <div className="space-y-2">
                       {roomState.phase === 'WAITING' && (
                         <Alert className="bg-blue-900/20 border-blue-500/30 mb-4">
                           <Lightbulb className="h-4 w-4 text-blue-400" />
@@ -910,37 +956,74 @@ export default function MultiplayerGameRoom() {
                         </Alert>
                       )}
 
+                      {(() => {
+                        console.log(`[Render] chatMessages.length=${chatMessages.length}, fallback=${fallbackMessages.length}`);
+                        return null;
+                      })()}
                       {(chatMessages.length ? chatMessages.slice(-60) : fallbackMessages).map((msg) => {
                         const isMe = msg.senderId === currentPlayerId;
                         const isSystem = msg.type === 'system';
                         const isActive = msg.senderId === activeSpeakerId && msg.type === 'speech';
-                        const bubbleClass = isSystem
-                          ? 'bg-blue-900/30 text-blue-200 border border-blue-800 w/full text-center'
-                          : isMe
-                            ? 'bg-indigo-600 text-white'
-                            : 'bg-slate-700 text-slate-200';
                         const speakingHighlight = ttsSpeakingPlayerId === msg.senderId;
+                        
+                        // 系统消息居中显示
+                        if (isSystem) {
+                          return (
+                            <div key={msg.id} className="flex justify-center">
+                              <div className="px-3 py-1 rounded-full bg-slate-700/50 text-slate-400 text-xs">
+                                {msg.content}
+                              </div>
+                            </div>
+                          );
+                        }
+                        
+                        const bubbleClass = isMe
+                          ? 'bg-indigo-600 text-white'
+                          : 'bg-slate-700 text-slate-200';
+                        
                         return (
-                          <div key={msg.id} className={`flex items-end gap-2 ${isMe ? 'justify-end' : 'justify-start'}`}>
+                          <div key={msg.id} className={`flex items-end gap-1.5 ${isMe ? 'justify-end' : 'justify-start'}`}>
                             {!isMe && (
                               <img
                                 src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${msg.senderId}`}
-                                className="w-6 h-6 rounded-full border border-slate-600"
+                                className="w-5 h-5 rounded-full border border-slate-600 flex-shrink-0"
                               />
                             )}
-                            <div className={`px-3 py-2 rounded-2xl max-w-[80%] text-sm border ${bubbleClass} ${(isActive || speakingHighlight) ? 'ring-2 ring-yellow-400 shadow-lg' : ''}`}>
-                              <div className="text-[11px] opacity-70 mb-1">{msg.senderName}</div>
-                              <div>{msg.content}</div>
+                            <div className={`px-2.5 py-1.5 rounded-xl max-w-[75%] text-xs ${bubbleClass} ${(isActive || speakingHighlight) ? 'ring-1 ring-yellow-400' : ''}`}>
+                              <div className="text-[10px] opacity-60 mb-0.5">{msg.senderName}</div>
+                              <div className="break-words">{msg.content}</div>
                             </div>
                             {isMe && (
                               <img
                                 src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${msg.senderId}`}
-                                className="w-6 h-6 rounded-full border border-slate-600"
+                                className="w-5 h-5 rounded-full border border-slate-600 flex-shrink-0"
                               />
                             )}
                           </div>
                         );
                       })}
+
+                      {/* Streaming Content Display */}
+                      {streamingContent && (
+                        <div className="flex items-end gap-1.5 justify-start">
+                          <img
+                            src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${streamingContent.playerId}`}
+                            className="w-5 h-5 rounded-full border border-slate-600 flex-shrink-0"
+                          />
+                          <div className="px-2.5 py-1.5 rounded-xl max-w-[75%] text-xs bg-slate-700 text-slate-200 ring-1 ring-blue-400/50">
+                            <div className="text-[10px] opacity-60 mb-0.5">
+                              {roomState.players.find(p => p.id === streamingContent.playerId)?.name || 'AI'}
+                              <span className="ml-1 text-blue-400">发言中...</span>
+                            </div>
+                            <div className="break-words">
+                              {streamingContent.content}
+                              <span className="inline-block w-1 h-2.5 ml-0.5 bg-blue-400 animate-pulse" />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      <div ref={chatEndRef} />
                     </div>
                   </ScrollArea>
 

@@ -1,17 +1,37 @@
 import axios from 'axios';
 import type { ChatMessage, AICompanion } from '@/types';
 
-const DEEPSEEK_API_KEY = import.meta.env.VITE_DEEPSEEK_API_KEY || '';
+const isViteEnv = typeof import.meta !== 'undefined' && (import.meta as any)?.env;
+const env: Record<string, string | undefined> =
+  (isViteEnv ? ((import.meta as any).env as Record<string, string | undefined>) : process.env);
+
+// Provider selection
+const AI_PROVIDER = (env?.VITE_AI_PROVIDER || env?.AI_PROVIDER || 'deepseek').toLowerCase();
+
+// DeepSeek config
+const DEEPSEEK_API_KEY = env?.VITE_DEEPSEEK_API_KEY || env?.DEEPSEEK_API_KEY || '';
 const DEEPSEEK_API_URL =
-  import.meta.env.VITE_DEEPSEEK_API_URL || 'https://api.siliconflow.cn/v1/chat/completions';
-const DEEPSEEK_MODEL = import.meta.env.VITE_DEEPSEEK_MODEL || 'deepseek-ai/DeepSeek-V3.1-Terminus';
+  env?.VITE_DEEPSEEK_API_URL || env?.DEEPSEEK_API_URL || 'https://api.siliconflow.cn/v1/chat/completions';
+const DEEPSEEK_MODEL = env?.VITE_DEEPSEEK_MODEL || env?.DEEPSEEK_MODEL || 'deepseek-ai/DeepSeek-V3.1-Terminus';
+
+// Gemini config
+const GEMINI_API_KEY = env?.VITE_GEMINI_API_KEY || env?.GEMINI_API_KEY || '';
+const GEMINI_MODEL = env?.VITE_GEMINI_MODEL || env?.GEMINI_MODEL || 'gemini-1.5-flash';
+const GEMINI_API_URL = (env?.VITE_GEMINI_API_URL || env?.GEMINI_API_URL || '')
+  || `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 
 // Validate API configuration
-if (!DEEPSEEK_API_KEY) {
-  console.warn('⚠️ VITE_DEEPSEEK_API_KEY is not configured. AI features will not work.');
-}
-if (!import.meta.env.VITE_DEEPSEEK_API_URL) {
-  console.warn('⚠️ VITE_DEEPSEEK_API_URL not set, using default:', DEEPSEEK_API_URL);
+if (AI_PROVIDER === 'deepseek') {
+  if (!DEEPSEEK_API_KEY) {
+    console.warn('⚠️ DeepSeek API key is not configured. AI features will not work.');
+  }
+  if (!env?.VITE_DEEPSEEK_API_URL && !env?.DEEPSEEK_API_URL) {
+    console.warn('⚠️ DeepSeek API URL not set, using default:', DEEPSEEK_API_URL);
+  }
+} else if (AI_PROVIDER === 'gemini') {
+  if (!GEMINI_API_KEY) {
+    console.warn('⚠️ Gemini API key is not configured. AI features will not work.');
+  }
 }
 
 interface AIMessage {
@@ -19,7 +39,7 @@ interface AIMessage {
   content: string;
 }
 
-// 创建AI客户端
+// 创建DeepSeek客户端
 const aiClient = axios.create({
   timeout: 60000,
   headers: {
@@ -28,41 +48,78 @@ const aiClient = axios.create({
   },
 });
 
+// Gemini请求封装
+async function chatWithGemini(messages: AIMessage[], companion?: AICompanion): Promise<string> {
+  if (!GEMINI_API_KEY) {
+    return '抱歉，Gemini服务未配置，请联系管理员。';
+  }
+
+  const toGeminiContents = (msgs: AIMessage[]) => {
+    return msgs.map((m) => ({
+      role: m.role === 'assistant' ? 'model' : (m.role === 'system' ? 'user' : 'user'),
+      parts: [{ text: m.content }],
+    }));
+  };
+
+  const formatted = [...messages];
+  if (companion) {
+    const systemPrompt = aiService.generateSystemPrompt(companion);
+    formatted.unshift({ role: 'system', content: systemPrompt });
+  }
+
+  const payload = { contents: toGeminiContents(formatted) };
+
+  try {
+    const res = await fetch(GEMINI_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(`Gemini http ${res.status}`);
+    const data = await res.json();
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text
+      || data?.candidates?.[0]?.output_text
+      || '';
+    return text || '抱歉，我现在无法回应。';
+  } catch (e) {
+    console.error('Gemini chat error:', e);
+    return '抱歉，服务暂时不可用。';
+  }
+}
+
 // AI对话服务
 export const aiService = {
   async chat(messages: ChatMessage[], companion?: AICompanion): Promise<string> {
+    const formattedMessages: AIMessage[] = messages.map((msg) => ({
+      role: msg.role,
+      content: msg.content,
+    }));
+
+    if (AI_PROVIDER === 'gemini' && GEMINI_API_KEY) {
+      return chatWithGemini(formattedMessages, companion);
+    }
+
     if (!DEEPSEEK_API_KEY) {
       console.error('AI service not configured: Missing API key');
       return '抱歉，AI服务未配置，请联系管理员。';
     }
 
     try {
-      const formattedMessages: AIMessage[] = messages.map((msg) => ({
-        role: msg.role,
-        content: msg.content,
-      }));
-
-      // 如果有AI伴侣，添加系统提示词
+      // DeepSeek
+      const withSystem = [...formattedMessages];
       if (companion) {
         const systemPrompt = this.generateSystemPrompt(companion);
-        formattedMessages.unshift({
-          role: 'system',
-          content: systemPrompt,
-        });
+        withSystem.unshift({ role: 'system', content: systemPrompt });
       }
-
       const response = await aiClient.post(DEEPSEEK_API_URL, {
         model: DEEPSEEK_MODEL,
-        messages: formattedMessages,
+        messages: withSystem,
         temperature: 0.7,
         max_tokens: 2000,
       });
-
-      // 处理DeepSeek API响应
       if (response.data?.choices?.[0]?.message?.content) {
         return response.data.choices[0].message.content;
       }
-
       return '抱歉，我现在无法回应。';
     } catch (error) {
       console.error('AI chat error:', error);
@@ -239,11 +296,18 @@ export const aiService = {
     userAction: string,
     companion: AICompanion,
   ): Promise<string> {
-    const prompt = `故事背景：${storyContext}
+    const prompt = `你是高级文本冒险主持人，请用沉浸式叙述继续故事，并给出明确的选项：
+【故事背景】
+${storyContext}
 
-玩家行动：${userAction}
+【玩家行动】
+${userAction}
 
-作为游戏主持人，请描述接下来发生的事情，并提供2-3个可选的行动选项。`;
+【要求】
+1. 先用2-3段文字描述新的场景与结果，保持连贯、具体、可视化。
+2. 然后以“可选行动”列出3个可选项，每项使用“•”起始，句式简洁，利于点击选择。
+3. 若存在风险或隐藏信息，请自然提示但不剧透。
+4. 风格需与伴侣角色设定一致。`;
 
     const messages: ChatMessage[] = [
       {

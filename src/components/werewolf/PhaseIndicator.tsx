@@ -8,6 +8,7 @@ interface PhaseIndicatorProps {
   orderIndex?: number | null;
   orderTotal?: number | null;
   currentSpeakerName?: string | null;
+  isCurrentSpeakerAI?: boolean; // AI发言时不显示倒计时
 }
 
 const PHASE_CONFIG: Record<GamePhase | 'DAY_MORNING_RESULT' | 'DAY_DEATH_LAST_WORDS', { icon: any; label: string; color: string }> = {
@@ -23,7 +24,7 @@ const PHASE_CONFIG: Record<GamePhase | 'DAY_MORNING_RESULT' | 'DAY_DEATH_LAST_WO
   GAME_OVER: { icon: Trophy, label: '游戏结束', color: 'bg-purple-600' },
 };
 
-export const PhaseIndicator = ({ phase, timer, currentRound, orderIndex, orderTotal, currentSpeakerName }: PhaseIndicatorProps) => {
+export const PhaseIndicator = ({ phase, timer, currentRound, orderIndex, orderTotal, currentSpeakerName, isCurrentSpeakerAI }: PhaseIndicatorProps) => {
   const config = PHASE_CONFIG[phase];
   const Icon = config.icon;
 
@@ -32,6 +33,9 @@ export const PhaseIndicator = ({ phase, timer, currentRound, orderIndex, orderTo
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
+
+  // 遗言阶段或AI发言时不显示倒计时
+  const showTimer = timer > 0 && phase !== 'DAY_DEATH_LAST_WORDS' && !isCurrentSpeakerAI;
 
   return (
     <div className="flex items-center justify-between bg-gradient-to-r from-slate-800 to-slate-900 p-6 rounded-lg shadow-xl border border-slate-700">
@@ -49,8 +53,8 @@ export const PhaseIndicator = ({ phase, timer, currentRound, orderIndex, orderTo
         </div>
       </div>
 
-      {/* Timer */}
-      {timer > 0 && (
+      {/* Timer - 遗言阶段和AI发言时不显示 */}
+      {showTimer && (
         <div className="flex items-center gap-3">
           <Clock className="w-5 h-5 text-slate-400" />
           <div className="text-3xl font-mono font-bold text-white">{formatTime(timer)}</div>

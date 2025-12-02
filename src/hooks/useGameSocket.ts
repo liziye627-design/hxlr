@@ -2,10 +2,32 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import type { WerewolfPlayer, GamePhase } from '../types';
 
-const DEFAULT_PORT = (import.meta as any)?.env?.VITE_SOCKET_PORT || 3001;
+const DEFAULT_PORT = (import.meta as any)?.env?.VITE_SOCKET_PORT || 5200;
 const DEFAULT_PROTO = typeof window !== 'undefined' ? window.location.protocol : 'http:';
 const DEFAULT_HOST = typeof window !== 'undefined' ? window.location.hostname : '127.0.0.1';
-const SOCKET_URL = (import.meta as any)?.env?.VITE_SOCKET_URL || `${DEFAULT_PROTO}//${DEFAULT_HOST}:${DEFAULT_PORT}`;
+const IS_SECURE = typeof window !== 'undefined' && window.location.protocol === 'https:';
+const ENV_SOCKET_URL = (import.meta as any)?.env?.VITE_SOCKET_URL || '';
+
+// 生产环境后端地址
+const PRODUCTION_BACKEND = 'https://hxlr.lzyupupup.online';
+
+const RESOLVED_SOCKET_URL = (() => {
+  // 优先使用环境变量
+  if (ENV_SOCKET_URL) return ENV_SOCKET_URL;
+  
+  const host = DEFAULT_HOST || '127.0.0.1';
+  
+  // 如果是 Vercel 部署，使用生产后端
+  if (IS_SECURE && /vercel\.app$/.test(host)) {
+    return PRODUCTION_BACKEND;
+  }
+  
+  // 本地开发
+  return `${DEFAULT_PROTO}//${host}:${DEFAULT_PORT}`;
+})();
+const SOCKET_URL = RESOLVED_SOCKET_URL;
+
+console.log('🔌 Socket URL:', SOCKET_URL);
 
 export interface RoomState {
   roomId: string;
@@ -43,6 +65,7 @@ export const useGameSocket = () => {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const lastMessagesRef = useRef<string[]>([]);
   const roomStateRef = useRef<RoomState | null>(null);
+  const chatMessagesRef = useRef<ChatMessage[]>([]); // 🔧 用 ref 保存消息，避免闭包问题
 
   // Speaking State
   const [activeSpeakerId, setActiveSpeakerId] = useState<string | null>(null);
@@ -53,6 +76,8 @@ export const useGameSocket = () => {
   const [dayEventQueue, setDayEventQueue] = useState<any[] | null>(null);
   const [nightHintTargetId, setNightHintTargetId] = useState<string | null>(null);
   const [nightHintInfo, setNightHintInfo] = useState<{ id: string; name?: string; role?: string; position?: number } | null>(null);
+  const [streamingContent, setStreamingContent] = useState<{ playerId: string; content: string } | null>(null);
+  const [prefetchingIds, setPrefetchingIds] = useState<Set<string>>(new Set());
 
   // Sheriff Election State
   const [sheriffCandidates, setSheriffCandidates] = useState<string[]>([]);
@@ -64,9 +89,13 @@ export const useGameSocket = () => {
 
   // Initialize socket connection
   useEffect(() => {
+    if (!SOCKET_URL) {
+      console.error('❌ Socket URL unavailable in secure context. 请在 .env 设置 VITE_SOCKET_URL 指向可达的后端。');
+      return;
+    }
     console.log('Initializing socket connection to:', SOCKET_URL);
     const newSocket = io(SOCKET_URL, {
-      transports: ['websocket'],
+      transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionAttempts: 5,
@@ -114,14 +143,43 @@ export const useGameSocket = () => {
 
     newSocket.on('chat_message', (message: ChatMessage) => {
       console.log('📨 Received chat_message:', message);
-      setChatMessages((prev) => {
-        const signature = `${message.id}`; // 使用唯一ID避免误去重导致漏消息
-        const recent = lastMessagesRef.current;
-        if (recent.includes(signature)) return prev;
-        const next = [...prev, message];
-        recent.push(signature);
-        if (recent.length > 200) recent.shift();
-        return next;
+      
+      // 🔧 双重去重：检查 lastMessagesRef 和 chatMessagesRef
+      const signature = `${message.id}`;
+      
+      // 检查是否已在去重列表中
+      if (lastMessagesRef.current.includes(signature)) {
+        console.log('⚠️ Duplicate message (in recent), skipping:', signature);
+        return;
+      }
+      
+      // 检查是否已在消息列表中
+      if (chatMessagesRef.current.some(m => m.id === message.id)) {
+        console.log('⚠️ Duplicate message (in ref), skipping:', signature);
+        return;
+      }
+      
+      // 添加到去重列表
+      lastMessagesRef.current.push(signature);
+      if (lastMessagesRef.current.length > 200) lastMessagesRef.current.shift();
+      
+      // 添加到消息列表
+      chatMessagesRef.current = [...chatMessagesRef.current, message];
+      setChatMessages([...chatMessagesRef.current]);
+      console.log(`✅ Message added, total: ${chatMessagesRef.current.length}, content: "${message.content?.substring(0, 30)}..."`);
+      
+      // 如果收到正式发言，清除流式状态
+      if (message.type === 'speech') {
+        setStreamingContent(null);
+      }
+    });
+
+    newSocket.on('ai_speech_chunk', (data: { playerId: string; chunk: string }) => {
+      setStreamingContent((prev) => {
+        if (prev && prev.playerId === data.playerId) {
+          return { ...prev, content: prev.content + data.chunk };
+        }
+        return { playerId: data.playerId, content: data.chunk };
       });
     });
 
@@ -141,6 +199,15 @@ export const useGameSocket = () => {
       setAiThinkingIds(prev => {
         const next = new Set(prev);
         if (thinking) next.add(playerId);
+        else next.delete(playerId);
+        return next;
+      });
+    });
+
+    newSocket.on('ai_prefetching', ({ playerId, prefetching }: { playerId: string, prefetching: boolean }) => {
+      setPrefetchingIds(prev => {
+        const next = new Set(prev);
+        if (prefetching) next.add(playerId);
         else next.delete(playerId);
         return next;
       });
@@ -167,6 +234,8 @@ export const useGameSocket = () => {
     newSocket.on('room_destroyed', () => {
       console.log('📨 Room destroyed');
       setRoomState(null);
+      chatMessagesRef.current = [];
+      lastMessagesRef.current = [];
       setChatMessages([]);
     });
 
@@ -202,7 +271,8 @@ export const useGameSocket = () => {
         phase: (roomState?.phase || 'DAY_VOTE') as any,
         type: 'system',
       };
-      setChatMessages(prev => [...prev, msg]);
+      chatMessagesRef.current = [...chatMessagesRef.current, msg];
+      setChatMessages([...chatMessagesRef.current]);
     });
 
     // 私聊：女巫夜晚提示被击杀目标
@@ -231,17 +301,18 @@ export const useGameSocket = () => {
         type: 'system' as const,
       }));
       if (systemLogs.length) {
-        setChatMessages(prev => {
-          const recent = lastMessagesRef.current;
-          const filtered = systemLogs.filter(msg => {
-            const signature = `${msg.type}|${msg.senderName}|${msg.content}`;
-            if (recent.includes(signature)) return false;
-            recent.push(signature);
-            if (recent.length > 50) recent.shift();
-            return true;
-          });
-          return filtered.length ? [...prev, ...filtered] : prev;
+        const recent = lastMessagesRef.current;
+        const filtered = systemLogs.filter(msg => {
+          const signature = `${msg.type}|${msg.senderName}|${msg.content}`;
+          if (recent.includes(signature)) return false;
+          recent.push(signature);
+          if (recent.length > 50) recent.shift();
+          return true;
         });
+        if (filtered.length) {
+          chatMessagesRef.current = [...chatMessagesRef.current, ...filtered];
+          setChatMessages([...chatMessagesRef.current]);
+        }
       }
     });
 
@@ -252,23 +323,23 @@ export const useGameSocket = () => {
       console.log(`🏅 ${playerName} 申请竞选警长 (总候选人: ${totalCandidates})`);
     });
 
-    newSocket.on('sheriff_elected', ({ sheriffId, sheriffName, votes }: { sheriffId: string, sheriffName: string, votes: number }) => {
+    newSocket.on('sheriff_elected', ({ sheriffName, votes }: { sheriffId: string, sheriffName: string, votes: number }) => {
       console.log(`👑 ${sheriffName} 当选警长！得票: ${votes}`);
     });
 
     // ========== Host Control Events ==========
 
-    newSocket.on('game_paused', ({ by }: { by: string }) => {
+    newSocket.on('game_paused', (_data: { by: string }) => {
       setIsPaused(true);
       console.log('⏸️ 游戏已暂停');
     });
 
-    newSocket.on('game_resumed', ({ by }: { by: string }) => {
+    newSocket.on('game_resumed', (_data: { by: string }) => {
       setIsPaused(false);
       console.log('▶️ 游戏已恢复');
     });
 
-    newSocket.on('host_forced_skip', ({ skippedId, by }: { skippedId: string, by: string }) => {
+    newSocket.on('host_forced_skip', (_data: { skippedId: string, by: string }) => {
       console.log('⏩ 主持人强制跳过发言');
     });
 
@@ -353,6 +424,8 @@ export const useGameSocket = () => {
       if (!socket) return;
       socket.emit('leave_room', { roomId, playerId });
       setRoomState(null);
+      chatMessagesRef.current = [];
+      lastMessagesRef.current = [];
       setChatMessages([]);
     },
     [socket],
@@ -639,6 +712,7 @@ export const useGameSocket = () => {
     dayEventQueue,
     nightHintTargetId,
     nightHintInfo,
+    streamingContent,
     createRoom,
     joinRoom,
     leaveRoom,
@@ -653,6 +727,7 @@ export const useGameSocket = () => {
     activeSpeakerId,
     speakerRemainingSeconds,
     aiThinkingIds,
+    prefetchingIds,
     speakerOrderIndex,
     speakerOrderTotal,
     // Sheriff Election

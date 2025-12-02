@@ -555,12 +555,38 @@ function handlePlayerSpeech(
         timestamp: speech.timestamp,
     });
 
+    const msgPayload = {
+        id: `speech_${Date.now()}_${player.id}`,
+        senderId: player.id,
+        senderName: player.name,
+        content,
+        timestamp: speech.timestamp,
+        phase: room.phase,
+        type: 'speech' as const,
+    };
+    io.to(roomId).emit('chat_message', msgPayload);
+
     console.log(`[发言] ${player.position}号(${player.name}): ${content.substring(0, 30)}...`);
 
     // 让所有AI理解这段发言
     const fsm = roomManager.getStateMachine(roomId);
     if (fsm) {
         fsm.handleUserSpeech(playerId, content);
+        
+        // 🔧 真人玩家发言后，根据发言长度自动延迟后结束发言
+        // 这样可以等待 TTS 播放完毕
+        if (room.phase === 'DAY_DISCUSS' || room.phase === 'DAY_DEATH_LAST_WORDS') {
+            const estimatedTTSDuration = Math.max(2000, content.length * 200 + 1000);
+            console.log(`[发言] ${player.position}号 等待TTS播放 ${estimatedTTSDuration}ms 后自动结束发言`);
+            setTimeout(() => {
+                // 再次检查是否仍是当前发言者（避免重复触发）
+                const currentRoom = roomManager.getRoom(roomId);
+                if (currentRoom && currentRoom.currentSpeakerId === playerId) {
+                    console.log(`[发言] ${player.position}号 TTS播放完毕，自动结束发言`);
+                    fsm.handleSpeechEnd(playerId);
+                }
+            }, estimatedTTSDuration);
+        }
     }
 }
 

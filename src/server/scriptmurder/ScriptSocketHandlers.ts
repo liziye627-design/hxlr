@@ -8,6 +8,7 @@ import type {
   ScriptVotePayload,
   WhisperPayload,
 } from './types.js';
+import type { PlayerAction } from '../jubensha/types.js';
 
 const getPlayerBySocket = (roomManager: ScriptRoomManager, socketId: string) => {
   const rooms = roomManager.getAllRooms();
@@ -109,6 +110,17 @@ export function registerScriptSocketHandlers(io: Server, roomManager: ScriptRoom
       const fsm = roomManager.getStateMachine(roomId);
       fsm?.hostResume(playerId);
       callback({ success: true });
+    });
+
+    socket.on('script_action', ({ roomId, action }: { roomId: string; action: PlayerAction }, callback) => {
+      const data = getPlayerBySocket(roomManager, socket.id);
+      if (!data || data.room.id !== roomId) return callback({ success: false, error: 'Auth failed' });
+      try {
+        roomManager.handlePlayerAction(roomId, data.player.id, action);
+        callback({ success: true });
+      } catch (e: any) {
+        callback({ success: false, error: e.message });
+      }
     });
 
     socket.on('get_script_rooms', (callback) => {

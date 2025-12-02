@@ -116,6 +116,12 @@ export interface ScriptCharacter {
   pdfPath: string;
   pdfPath2?: string; // Some characters have split PDFs
   description?: string;
+  // AI Agent Configuration
+  role?: string;
+  personality?: string;
+  secrets?: string[];
+  relationships?: Record<string, string>;
+  avatar?: string;
 }
 
 export interface ScriptClue {

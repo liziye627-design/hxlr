@@ -13,6 +13,8 @@ import {
 } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { tts } from '@/services/TTSService';
+import { API_BASE } from '@/config/api';
 
 // --- Interfaces ---
 interface Character {
@@ -49,6 +51,7 @@ export default function JubenshaGameRoom() {
     const [isBGMPlaying, setIsBGMPlaying] = useState(true);
     const [characters, setCharacters] = useState<Character[]>([]); // All characters in the game
     const [playerCharacter, setPlayerCharacter] = useState<Character | null>(null); // The current player's character info
+    const [targetCharacterId, setTargetCharacterId] = useState<string | null>(null);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const audioRef = useRef<HTMLAudioElement>(null);
@@ -63,17 +66,49 @@ export default function JubenshaGameRoom() {
     }, [messages, scrollToBottom]);
 
     useEffect(() => {
-        // Mock initial characters (replace with actual data from backend)
-        const mockCharacters: Character[] = [
-            { id: 'player1', name: '玩家', avatar: '/avatars/player.png', description: '你，故事的主角。', isPlayer: true },
-            { id: 'char_li', name: '李医生', avatar: '/avatars/doctor_li.png', description: '一位经验丰富的心理医生。' },
-            { id: 'char_wang', name: '王警官', avatar: '/avatars/police_wang.png', description: '负责调查案件的警官。' },
-            { id: 'char_zhang', name: '张小姐', avatar: '/avatars/ms_zhang.png', description: '受害者生前的密友。' },
-        ];
-        setCharacters(mockCharacters);
-        setPlayerCharacter(mockCharacters.find(c => c.isPlayer) || null);
+        (async () => {
+            try {
+                const res = await fetch(`${API_BASE}/api/jubensha/rooms/${roomId}`);
+                const data = await res.json();
+                const room = data?.room;
+                if (room) {
+                    // Load characters from the script config AND from room players (AI players)
+                    const scriptChars: Character[] = (room.characters || []).map((c: any) => ({
+                        id: c.id || c.name,
+                        name: c.name,
+                        avatar: c.avatar || '/avatars/default-ai.png',
+                        description: c.description || '',
+                    }));
 
-        const ws = new WebSocket(`ws://localhost:3001/jubensha/${roomId}`);
+                    // Also include AI players that have joined the room
+                    const aiPlayerChars: Character[] = (room.players || [])
+                        .filter((p: any) => p.isAI && p.type === 'ai')
+                        .map((p: any) => ({
+                            id: p.id,
+                            name: p.name,
+                            avatar: '/avatars/default-ai.png',
+                            description: `AI角色: ${p.name}`,
+                        }));
+
+                    // Combine and deduplicate by name
+                    const allChars = [...scriptChars, ...aiPlayerChars];
+                    const uniqueChars = allChars.filter((char, index, self) =>
+                        index === self.findIndex(c => c.name === char.name)
+                    );
+
+                    setCharacters(uniqueChars);
+                    setPlayerCharacter({ id: 'player1', name: '玩家', avatar: '/avatars/player.png', description: '你，故事的主角。', isPlayer: true });
+                    setCurrentScene(room.initial_scene || null);
+                }
+            } catch (e) {
+                console.error('Failed to load room details:', e);
+            }
+        })();
+
+        const playerId = `player_${Date.now()}`;
+        const wsProto = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsBase = (import.meta as any)?.env?.VITE_JUBENSHA_WS_URL || `${wsProto}//${typeof window !== 'undefined' ? window.location.hostname : '127.0.0.1'}:${(import.meta as any)?.env?.VITE_SOCKET_PORT || 3001}`;
+        const ws = new WebSocket(`${wsBase}/jubensha/${roomId}/${playerId}`);
 
         ws.onopen = () => {
             console.log('Connected to game room');
@@ -86,10 +121,13 @@ export default function JubenshaGameRoom() {
             console.log('Received WS message:', data);
 
             if (data.type === 'message') {
+                const senderName = data.sender || data.senderId;
+                const senderType = data.senderType === 'ai' ? 'character' : data.senderType;
+                const char = characters.find(c => c.name === senderName);
                 addMessage({
                     id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
-                    senderId: data.senderId,
-                    senderType: data.senderType,
+                    senderId: char?.id || senderName || 'narrator',
+                    senderType: senderType || 'narrator',
                     content: data.content,
                     timestamp: Date.now(),
                 });
@@ -102,13 +140,35 @@ export default function JubenshaGameRoom() {
                     content: `场景切换至：${data.scene.name} - ${data.scene.description}`,
                     timestamp: Date.now(),
                 });
+            } else if (data.type === 'agent_response') {
+                const response = data.content || data; // Handle if wrapped or direct
+                // Agent response structure: { type: 'dialogue', content: '...', metadata: { characterId: '...' } }
+
+                if (response.type === 'dialogue') {
+                    const charId = response.metadata?.characterId;
+                    const char = characters.find(c => c.id === charId);
+
+                    addMessage({
+                        id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
+                        senderId: charId || 'unknown_agent',
+                        senderType: 'character',
+                        content: response.content,
+                        timestamp: Date.now(),
+                    });
+                } else if (response.type === 'narration') {
+                    addMessage({
+                        id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
+                        senderId: 'narrator',
+                        senderType: 'narrator',
+                        content: response.content,
+                        timestamp: Date.now(),
+                    });
+                }
             } else if (data.type === 'game_state') {
                 // Initial game state or full state update
                 if (data.scene) setCurrentScene(data.scene);
                 if (data.messages) setMessages(data.messages);
                 if (data.characters) setCharacters(data.characters);
-                // Identify player's character from the received characters
-                setPlayerCharacter(data.characters.find((c: Character) => c.isPlayer) || null);
             }
         };
 
@@ -146,12 +206,27 @@ export default function JubenshaGameRoom() {
         addMessage(message);
 
         if (wsRef.current?.readyState === WebSocket.OPEN) {
-            wsRef.current.send(JSON.stringify({
-                type: 'message',
-                senderId: playerCharacter.id,
-                senderType: 'player',
-                content: inputText
-            }));
+            if (targetCharacterId) {
+                // Send as script_action for AI interaction
+                wsRef.current.send(JSON.stringify({
+                    type: 'script_action',
+                    roomId: roomId,
+                    action: {
+                        type: 'ask_character',
+                        characterId: targetCharacterId,
+                        message: inputText
+                    }
+                }));
+            } else {
+                // Regular chat
+                wsRef.current.send(JSON.stringify({
+                    type: 'message',
+                    senderId: playerCharacter.id,
+                    senderType: 'player',
+                    content: inputText,
+                    targetId: undefined
+                }));
+            }
         }
 
         setInputText('');
@@ -287,6 +362,29 @@ export default function JubenshaGameRoom() {
 
             {/* 输入区域 */}
             <div className="bg-white border-t border-gray-200 px-4 py-3 shadow-md z-10">
+                {/* 选择交流对象 */}
+                {characters.length > 0 && (
+                    <div className="flex items-center gap-2 mb-3 overflow-x-auto custom-scrollbar">
+                        <span className="text-xs text-gray-500 whitespace-nowrap">向谁提问：</span>
+                        <button
+                            className={`px-3 py-1 rounded-full text-xs border ${!targetCharacterId ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'}`}
+                            onClick={() => setTargetCharacterId(null)}
+                        >
+                            所有人
+                        </button>
+                        {characters.filter(c => !c.isPlayer).map((char) => (
+                            <button
+                                key={char.id}
+                                className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs border ${targetCharacterId === char.id ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'}`}
+                                onClick={() => setTargetCharacterId(char.id)}
+                                title={char.name}
+                            >
+                                <img src={char.avatar} alt={char.name} className="w-5 h-5 rounded-full" />
+                                <span className="whitespace-nowrap">{char.name}</span>
+                            </button>
+                        ))}
+                    </div>
+                )}
                 <div className="flex items-center gap-2">
                     <input
                         type="text"
@@ -338,14 +436,15 @@ interface ChatBubbleProps {
 function ChatBubble({ message, characters, playerCharacterId }: ChatBubbleProps) {
     const [displayedText, setDisplayedText] = useState('');
     const [isTyping, setIsTyping] = useState(false);
+    const spokenRef = useRef(false);
 
-    const senderCharacter = characters.find(char => char.id === message.senderId);
+    const senderCharacter = characters.find(char => char.id === message.senderId) || characters.find(char => char.name === message.senderId);
     const isPlayer = message.senderId === playerCharacterId && message.senderType === 'player';
     const isNarrator = message.senderType === 'narrator';
     const isCharacterAI = message.senderType === 'character';
 
     useEffect(() => {
-        if (isCharacterAI || isNarrator) { // AI and Narrator messages type out
+        if (isCharacterAI || isNarrator) {
             setIsTyping(true);
             let i = 0;
             const timer = setInterval(() => {
@@ -355,7 +454,14 @@ function ChatBubble({ message, characters, playerCharacterId }: ChatBubbleProps)
                     clearInterval(timer);
                     setIsTyping(false);
                 }
-            }, 30); // Faster typing for better flow
+            }, 30);
+            if (!spokenRef.current) {
+                const pid = isNarrator ? 'narrator' : message.senderId;
+                try {
+                    tts.speak(message.content, pid);
+                } catch { }
+                spokenRef.current = true;
+            }
             return () => clearInterval(timer);
         } else {
             setDisplayedText(message.content);
@@ -406,8 +512,8 @@ function ChatBubble({ message, characters, playerCharacterId }: ChatBubbleProps)
                 </span>
 
                 <div className={`px-4 py-2 rounded-2xl shadow-md ${isPlayer
-                        ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-br-sm'
-                        : 'bg-white text-gray-800 rounded-bl-sm'
+                    ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-br-sm'
+                    : 'bg-white text-gray-800 rounded-bl-sm'
                     }`}>
                     <p className="text-sm whitespace-pre-wrap">
                         {displayedText}

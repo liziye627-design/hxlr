@@ -8,6 +8,10 @@ import WerewolfGameView from './pages/werewolf/WerewolfGameView';
 import ReplayViewer from './pages/werewolf/ReplayViewer';
 import JubenshaLobby from './pages/jubensha/JubenshaLobby';
 import JubenshaGameRoom from './pages/jubensha/JubenshaGameRoom';
+import ITGameRoom from './pages/jubensha/ITGameRoom';
+import SchoolRulesGame from './pages/jubensha/SchoolRulesGame';
+import PaydayGame from './pages/jubensha/PaydayGame';
+import YandereGame from './pages/jubensha/YandereGame';
 import Adventure from './pages/Adventure';
 import Rankings from './pages/Rankings';
 import type { ReactNode } from 'react';
@@ -45,6 +49,12 @@ const routes: RouteConfig[] = [
     visible: false,
   },
   {
+    name: '狼人杀联机',
+    path: '/werewolf/multiplayer',
+    element: <MultiplayerGameRoom />,
+    visible: false,
+  },
+  {
     name: '狼人杀-旧版1',
     path: '/werewolf/old/v1',
     element: <Werewolf />,
@@ -72,6 +82,30 @@ const routes: RouteConfig[] = [
     name: '剧本杀游戏',
     path: '/script-murder/room/:roomId',
     element: <JubenshaGameRoom />,
+    visible: false,
+  },
+  {
+    name: '小丑回魂',
+    path: '/script-murder/it',
+    element: <ITGameRoom />,
+    visible: false,
+  },
+  {
+    name: '第二十二条校规',
+    path: '/script-murder/school-rules',
+    element: <SchoolRulesGame />,
+    visible: false,
+  },
+  {
+    name: '收获日',
+    path: '/script-murder/payday',
+    element: <PaydayGame />,
+    visible: false,
+  },
+  {
+    name: '病娇男孩的精分日记',
+    path: '/script-murder/yandere',
+    element: <YandereGame />,
     visible: false,
   },
   {
