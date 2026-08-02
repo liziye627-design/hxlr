@@ -26,6 +26,7 @@ export interface AICompanion {
   type: 'alpha' | 'aqua' | 'shadow' | 'rookie';
   description: string | null;
   avatar_url: string | null;
+  officialPersona?: OfficialPersonaProfile | null;
   personality: {
     traits: string[];
     style: string;
@@ -36,6 +37,37 @@ export interface AICompanion {
   } | null;
   unlock_level: number;
   created_at: string;
+}
+
+export type OfficialPersonaAssetType = 'live2d' | 'vrm' | 'static';
+export type OfficialPersonaSourceKind = 'live2d-sample' | 'vroid-sample' | 'project-original';
+export type OfficialPersonaComplianceStatus =
+  | 'approved'
+  | 'review_required'
+  | 'non_commercial_only'
+  | 'blocked';
+
+export interface OfficialPersonaPromptSeed {
+  role: string;
+  visual: string[];
+  behavior: string[];
+  voice: string[];
+}
+
+export interface OfficialPersonaCompliance {
+  status: OfficialPersonaComplianceStatus;
+  notes: string[];
+}
+
+export interface OfficialPersonaProfile {
+  officialName: string;
+  assetType: OfficialPersonaAssetType;
+  sourceKind: OfficialPersonaSourceKind;
+  sourceLabel: string;
+  sourceUrl: string;
+  promptSeed: OfficialPersonaPromptSeed;
+  compliance: OfficialPersonaCompliance;
+  assetSearchKeywords?: string[];
 }
 
 export interface UserCompanion {
@@ -99,6 +131,72 @@ export interface Ranking {
   rank: number | null;
   season: string | null;
   updated_at: string;
+}
+
+export type AgentReviewMode = 'werewolf' | 'script_murder' | 'chat' | 'mc';
+
+export interface AgentReview {
+  id: string;
+  agent_id: string;
+  user_id: string;
+  session_id: string | null;
+  game_mode: AgentReviewMode;
+  overall_score: number;
+  chemistry_score: number;
+  deduction_score: number;
+  clutch_score: number;
+  suggestion: string | null;
+  created_at: string;
+}
+
+export interface AgentReviewInput {
+  agent_id: string;
+  user_id: string;
+  session_id?: string | null;
+  game_mode: AgentReviewMode;
+  overall_score: number;
+  chemistry_score: number;
+  deduction_score: number;
+  clutch_score: number;
+  suggestion?: string | null;
+}
+
+export interface AgentLeaderboardEntry {
+  agentId: string;
+  agentName: string;
+  title: string;
+  previewImage: string;
+  modelName: string;
+  reviewCount: number;
+  averageOverall: number;
+  averageChemistry: number;
+  averageDeduction: number;
+  averageClutch: number;
+  trendScore: number;
+  recentSuggestion: string | null;
+  recommendedModes: AgentReviewMode[];
+}
+
+export interface GameSessionAgentPick {
+  id: string;
+  session_id: string;
+  user_id: string;
+  agent_id: string;
+  slot: 'lead' | 'bench';
+  game_mode: AgentReviewMode;
+  created_at: string;
+}
+
+export interface AgentMemoryChunk {
+  id: string;
+  agent_id: string;
+  user_id: string | null;
+  session_id: string | null;
+  game_mode: AgentReviewMode | null;
+  source_type: 'review' | 'suggestion' | 'session_note';
+  content: string;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
 }
 
 // 扩展类型定义
@@ -256,6 +354,7 @@ export interface WerewolfPlayer {
   hasActedNight?: boolean;
   hasVoted?: boolean;
   hasHunterShot?: boolean;
+  hasSpokenThisRound?: boolean; // Added for tracking speech status
 }
 
 // 狼人杀游戏状态类型

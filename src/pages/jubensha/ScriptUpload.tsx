@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
+import { getApiUrl } from '@/lib/runtimeUrls';
 import { Upload, FileText, BookOpen, X, CheckCircle, AlertCircle } from 'lucide-react';
 
 interface UploadedFile {
@@ -24,7 +25,6 @@ export default function ScriptUpload() {
   const [characterScripts, setCharacterScripts] = useState<UploadedFile[]>([]);
   const [dmHandbook, setDmHandbook] = useState<UploadedFile | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const API_BASE = (import.meta as any)?.env?.VITE_SERVER_URL || `${typeof window !== 'undefined' ? window.location.protocol : 'http:'}//${typeof window !== 'undefined' ? window.location.hostname : '127.0.0.1'}:${(import.meta as any)?.env?.VITE_SOCKET_PORT || 3001}`;
 
   const handleCharacterFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -78,7 +78,7 @@ export default function ScriptUpload() {
       characterScripts.forEach((item, index) => {
         form.append(`characterScript_${index}`, item.file);
       });
-      const res = await fetch(`${API_BASE}/api/jubensha/upload`, { method: 'POST', body: form });
+      const res = await fetch(getApiUrl('/api/jubensha/upload'), { method: 'POST', body: form });
       const json = await res.json();
       if (json?.success && json?.script?.id) {
         toast({ title: '上传成功', description: `剧本《${scriptName}》已成功上传并解析` });

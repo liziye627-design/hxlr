@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { AGENT_SHOWROOM, AGENT_SHOWROOM_INDEX } from '@/config/agentRoster';
 import type {
   UserProfile,
   AICompanion,
@@ -8,7 +9,106 @@ import type {
   Story,
   Ranking,
   CompanionWithRelation,
+  AgentLeaderboardEntry,
+  AgentReview,
+  AgentReviewInput,
 } from '@/types';
+
+const AGENT_REVIEW_STORAGE_KEY = 'agent-reviews-v1';
+
+function getStoredAgentReviews(): AgentReview[] {
+  if (typeof window === 'undefined') return [];
+
+  try {
+    const raw = window.localStorage.getItem(AGENT_REVIEW_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    console.error('Error reading local agent reviews:', error);
+    return [];
+  }
+}
+
+function setStoredAgentReviews(reviews: AgentReview[]) {
+  if (typeof window === 'undefined') return;
+
+  try {
+    window.localStorage.setItem(AGENT_REVIEW_STORAGE_KEY, JSON.stringify(reviews));
+  } catch (error) {
+    console.error('Error persisting local agent reviews:', error);
+  }
+}
+
+function buildAgentLeaderboard(reviews: AgentReview[]): AgentLeaderboardEntry[] {
+  return AGENT_SHOWROOM.map((agent) => {
+    const baseReviewCount = 10 + Math.round((agent.scoreSeed.chemistry + agent.scoreSeed.deduction) / 25);
+    const baseOverall =
+      (agent.scoreSeed.chemistry + agent.scoreSeed.deduction + agent.scoreSeed.clutch + agent.scoreSeed.ambience) /
+      80;
+    const baseChemistry = agent.scoreSeed.chemistry / 20;
+    const baseDeduction = agent.scoreSeed.deduction / 20;
+    const baseClutch = agent.scoreSeed.clutch / 20;
+
+    const agentReviews = reviews.filter((review) => review.agent_id === agent.id);
+    const totalWeight = baseReviewCount + agentReviews.length;
+    const sum = agentReviews.reduce(
+      (accumulator, review) => {
+        accumulator.overall += review.overall_score;
+        accumulator.chemistry += review.chemistry_score;
+        accumulator.deduction += review.deduction_score;
+        accumulator.clutch += review.clutch_score;
+        return accumulator;
+      },
+      { overall: 0, chemistry: 0, deduction: 0, clutch: 0 },
+    );
+
+    const averageOverall = Number(
+      ((baseOverall * baseReviewCount + sum.overall) / totalWeight).toFixed(2),
+    );
+    const averageChemistry = Number(
+      ((baseChemistry * baseReviewCount + sum.chemistry) / totalWeight).toFixed(2),
+    );
+    const averageDeduction = Number(
+      ((baseDeduction * baseReviewCount + sum.deduction) / totalWeight).toFixed(2),
+    );
+    const averageClutch = Number(
+      ((baseClutch * baseReviewCount + sum.clutch) / totalWeight).toFixed(2),
+    );
+    const recentSuggestion =
+      agentReviews
+        .filter((review) => review.suggestion?.trim())
+        .sort((left, right) => right.created_at.localeCompare(left.created_at))[0]?.suggestion ?? null;
+
+    return {
+      agentId: agent.id,
+      agentName: agent.name,
+      title: agent.title,
+      previewImage: agent.previewImage,
+      modelName: agent.modelName,
+      reviewCount: totalWeight,
+      averageOverall,
+      averageChemistry,
+      averageDeduction,
+      averageClutch,
+      trendScore: Number(
+        (
+          averageOverall * 0.55 +
+          averageDeduction * 0.2 +
+          averageClutch * 0.15 +
+          averageChemistry * 0.1
+        ).toFixed(2),
+      ),
+      recentSuggestion,
+      recommendedModes: agent.modes.filter(
+        (mode): mode is 'werewolf' | 'script_murder' | 'chat' | 'mc' => mode === 'werewolf' || mode === 'script_murder' || mode === 'chat' || mode === 'mc',
+      ),
+    };
+  }).sort((left, right) => {
+    if (right.trendScore !== left.trendScore) return right.trendScore - left.trendScore;
+    return right.reviewCount - left.reviewCount;
+  });
+}
 
 // 用户相关API
 export const userApi = {
@@ -435,6 +535,131 @@ export const rankingApi = {
 };
 
 // 狼人杀相关API
+export const agentReviewApi = {
+  async getLeaderboard(): Promise<AgentLeaderboardEntry[]> {
+    const localReviews = getStoredAgentReviews();
+
+    try {
+      const { data, error } = await supabase
+        .from('agent_reviews')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(500);
+
+      if (error) {
+        throw error;
+      }
+
+      const remoteReviews = Array.isArray(data) ? (data as AgentReview[]) : [];
+      return buildAgentLeaderboard([...remoteReviews, ...localReviews]);
+    } catch (error) {
+      console.warn('Falling back to local agent leaderboard:', error);
+      return buildAgentLeaderboard(localReviews);
+    }
+  },
+
+  async getReviewsForAgent(agentId: string): Promise<AgentReview[]> {
+    const localReviews = getStoredAgentReviews().filter((review) => review.agent_id === agentId);
+
+    try {
+      const { data, error } = await supabase
+        .from('agent_reviews')
+        .select('*')
+        .eq('agent_id', agentId)
+        .order('created_at', { ascending: false })
+        .limit(30);
+
+      if (error) {
+        throw error;
+      }
+
+      const remoteReviews = Array.isArray(data) ? (data as AgentReview[]) : [];
+      return [...remoteReviews, ...localReviews].sort((left, right) =>
+        right.created_at.localeCompare(left.created_at),
+      );
+    } catch (error) {
+      console.warn('Falling back to local agent reviews:', error);
+      return localReviews.sort((left, right) => right.created_at.localeCompare(left.created_at));
+    }
+  },
+
+  async submitReview(input: AgentReviewInput): Promise<AgentReview | null> {
+    const review: AgentReview = {
+      id: crypto.randomUUID(),
+      agent_id: input.agent_id,
+      user_id: input.user_id,
+      session_id: input.session_id ?? null,
+      game_mode: input.game_mode,
+      overall_score: input.overall_score,
+      chemistry_score: input.chemistry_score,
+      deduction_score: input.deduction_score,
+      clutch_score: input.clutch_score,
+      suggestion: input.suggestion?.trim() || null,
+      created_at: new Date().toISOString(),
+    };
+
+    const localReviews = getStoredAgentReviews();
+    setStoredAgentReviews([review, ...localReviews]);
+
+    try {
+      const { error } = await supabase.from('agent_reviews').insert({
+        id: review.id,
+        agent_id: review.agent_id,
+        user_id: review.user_id,
+        session_id: review.session_id,
+        game_mode: review.game_mode,
+        overall_score: review.overall_score,
+        chemistry_score: review.chemistry_score,
+        deduction_score: review.deduction_score,
+        clutch_score: review.clutch_score,
+        created_at: review.created_at,
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      if (review.suggestion) {
+        await supabase.from('agent_review_suggestions').insert({
+          review_id: review.id,
+          agent_id: review.agent_id,
+          user_id: review.user_id,
+          session_id: review.session_id,
+          game_mode: review.game_mode,
+          content: review.suggestion,
+          created_at: review.created_at,
+        });
+
+        await supabase.from('agent_memory_chunks').insert({
+          agent_id: review.agent_id,
+          user_id: review.user_id,
+          session_id: review.session_id,
+          game_mode: review.game_mode,
+          source_type: 'review',
+          content: review.suggestion,
+          metadata: {
+            overall_score: review.overall_score,
+            chemistry_score: review.chemistry_score,
+            deduction_score: review.deduction_score,
+            clutch_score: review.clutch_score,
+          },
+          created_at: review.created_at,
+        });
+      }
+    } catch (error) {
+      console.warn('Review stored locally; remote sync unavailable:', error);
+    }
+
+    return review;
+  },
+
+  getSeedForAgent(agentId: string): AgentLeaderboardEntry | null {
+    const agent = AGENT_SHOWROOM_INDEX[agentId];
+    if (!agent) return null;
+    return buildAgentLeaderboard([]).find((entry) => entry.agentId === agent.id) ?? null;
+  },
+};
+
 export const werewolfApi = {
   // 获取所有人设
   async getAllPersonas(): Promise<any[]> {

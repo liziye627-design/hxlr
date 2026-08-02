@@ -12,23 +12,21 @@ import { ScriptRoomManager } from './scriptmurder/ScriptRoomManager.js';
 import { registerScriptSocketHandlers } from './scriptmurder/ScriptSocketHandlers.js';
 import jubenshaRoutes from './jubensha/JubenshaHandlers.js';
 import scriptUploadRoutes from './routes/scriptUpload.js';
+import minecraftRoutes from './routes/minecraft.js';
+import ttsRoutes from './routes/tts.js';
 import { JubenshaWebSocketManager } from './jubensha/JubenshaHandlers.js';
 import { WebSocketServer } from 'ws';
 
 const app = express();
 const httpServer = createServer(app);
 
-// CORS configuration for production and development
+// CORS configuration for Vite dev server
 const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || '';
 const allowedOrigins = [
   'http://127.0.0.1:5200',
   'http://localhost:5200',
   'https://127.0.0.1:5200',
   'https://localhost:5200',
-  'http://127.0.0.1:5173',
-  'http://localhost:5173',
-  'https://hxlr.lzyupupup.online',
-  'https://traeapp-7gn2vl8qe60xp2ip-2jligvwuq-liiziyes-projects.vercel.app',
   FRONTEND_ORIGIN,
 ].filter(Boolean);
 
@@ -38,8 +36,6 @@ const io = new Server(httpServer, {
       if (!origin) return callback(null, true);
       if (allowedOrigins.includes(origin)) return callback(null, true);
       if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) return callback(null, true);
-      if (/^https?:\/\/.*\.vercel\.app(:\d+)?$/.test(origin)) return callback(null, true);
-      if (/^https?:\/\/.*\.lzyupupup\.online(:\d+)?$/.test(origin)) return callback(null, true);
       if (/^https?:\/\/(10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3})(:\d+)?$/.test(origin)) return callback(null, true);
       return callback(null, false);
     },
@@ -55,8 +51,6 @@ app.use(
       if (!origin) return callback(null, true);
       if (allowedOrigins.includes(origin)) return callback(null, true);
       if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) return callback(null, true);
-      if (/^https?:\/\/.*\.vercel\.app(:\d+)?$/.test(origin)) return callback(null, true);
-      if (/^https?:\/\/.*\.lzyupupup\.online(:\d+)?$/.test(origin)) return callback(null, true);
       if (/^https?:\/\/(10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3})(:\d+)?$/.test(origin)) return callback(null, true);
       return callback(null, false);
     },
@@ -81,6 +75,8 @@ registerScriptSocketHandlers(io, scriptRoomManager);
 // Register Jubensha routes
 app.use('/api/jubensha', jubenshaRoutes);
 app.use('/api/jubensha', scriptUploadRoutes);
+app.use('/api/minecraft', minecraftRoutes);
+app.use('/api/tts', ttsRoutes);
 
 // WebSocket for Jubensha
 const wss = new WebSocketServer({ noServer: true });

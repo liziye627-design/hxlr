@@ -1,0 +1,8 @@
+{
+  "name": "ren",
+  "cooldown": 5000,
+  "model": {
+    "api": "deepseek",
+    "model": "deepseek-chat"
+  }
+}

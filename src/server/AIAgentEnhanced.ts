@@ -282,7 +282,7 @@ export class AIAgentEnhanced {
     /**
      * 白天发言
      */
-    async generateDaySpeech(onStream?: (chunk: string) => void): Promise<{
+    async generateDaySpeech(): Promise<{
         speech: string;
         reasoning: CoTStep[];
         debugUpdates?: SuspicionUpdate[];
@@ -353,8 +353,7 @@ export class AIAgentEnhanced {
                 forcedTargetPosition: targetUpdate.target_position,
                 forcedSuspicion: targetUpdate.new_suspicion,
                 forcedReason: this.suspicionReasons[targetUpdate.player_id] || '综合逻辑与性格加权后可疑'
-            },
-            onStream
+            }
         )
         try {
             const _ms2 = getMemoryStream((this.gameState as any).id || this.gameState.name || 'default');
@@ -401,8 +400,7 @@ export class AIAgentEnhanced {
             forcedTargetPosition: number
             forcedSuspicion: number
             forcedReason: string
-        },
-        onStream?: (chunk: string) => void
+        }
     ): Promise<string> {
         const role = this.player.role || 'villager';
         const position = this.player.position;
@@ -484,41 +482,19 @@ ${memoryContext}
  ${friendlyPolicy}
         `;
 
-        // 调用DeepSeek API 生成发言（带竞速降级机制）
-        const TIMEOUT_MS = 12000; // 缩短超时至12秒
-        const FALLBACK_DELAY_MS = 8000; // 8秒后启动降级竞速
+        // 调用DeepSeek API 生成发言
+        const maxRetries = 1;
+        let retryCount = 0;
 
-        // 生成启发式降级发言
-        const generateHeuristicFallback = (): string => {
-            const targetPos = hardConstraints?.forcedTargetPosition || topSuspect.targetPosition;
-            const suspicion = hardConstraints?.forcedSuspicion ?? topSuspect.suspicionScore;
-            const reason = hardConstraints?.forcedReason || topSuspect.reasoning[0]?.conclusion || '综合分析';
-            
-            if (suspicion >= 50) {
-                const templates = [
-                    `我觉得${targetPos}号比较可疑，${reason.slice(0, 30)}。`,
-                    `${targetPos}号的发言有问题，大家注意一下。`,
-                    `我怀疑${targetPos}号，理由是${reason.slice(0, 25)}。`,
-                ];
-                return templates[Math.floor(Math.random() * templates.length)];
-            } else {
-                const templates = [
-                    `目前我没有明确怀疑对象，再观察一下。`,
-                    `我暂时过，等听听其他人的发言。`,
-                    `场上信息不够，我先保留意见。`,
-                ];
-                return templates[Math.floor(Math.random() * templates.length)];
-            }
-        };
-
-        // 创建API调用Promise
-        const apiCall = async (): Promise<string> => {
-            console.log(`[API调用] ${this.player.position}号 开始调用API...`);
-
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
-
+        while (retryCount <= maxRetries) {
             try {
+                console.log(`[API调用] ${this.player.position}号 开始调用API (尝试 ${retryCount + 1}/${maxRetries + 1})...`);
+                console.log(`[API配置] URL: ${this.apiUrl}, Model: ${this.model}, PromptLength: ${prompt.length}`);
+
+                // 添加超时控制 (60秒)
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 60000);
+
                 const response = await fetch(this.apiUrl, {
                     method: 'POST',
                     headers: {
@@ -530,196 +506,149 @@ ${memoryContext}
                         messages: [
                             { role: 'user', content: prompt }
                         ],
-                        temperature: 0.7,
-                        max_tokens: 400, // 减少token数以加快生成
-                        stream: true
+                        temperature: 0.7, // 稍微降低温度以保证遵循格式
+                        max_tokens: 800 // 增加token限制以容纳CoT
                     }),
                     signal: controller.signal
                 });
 
                 clearTimeout(timeoutId);
+                console.log(`[API响应] ${this.player.position}号 收到响应，状态: ${response.status}`);
 
                 if (!response.ok) {
                     throw new Error(`API返回错误状态: ${response.status}`);
                 }
 
-                if (!response.body) throw new Error('Response body is empty');
+                const data = await response.json() as any;
+                console.log(`[API解析] ${this.player.position}号 成功解析JSON`);
 
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder();
-                let fullText = '';
-                let buffer = '';
-                let hasContent = false;
+                const generated = data.choices?.[0]?.message?.content || '';
 
-                // 🔧 修复：不在流式过程中发送原始内容（包含内心OS）
-                // 先收集完整文本，解析后再模拟流式发送公开发言
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
+                console.log(`[AI原始输出] ${this.player.position}号:\n${generated.substring(0, 100)}...`);
 
-                    const chunk = decoder.decode(value, { stream: true });
-                    buffer += chunk;
+                // 解析输出，提取公开具体发言
+                return this.parseSpeechOutput(generated, topSuspect);
+            } catch (error: any) {
+                const isTimeout = error.name === 'AbortError';
+                console.error(`[AI发言生成] ${this.player.position}号 API调用失败 (尝试 ${retryCount + 1}):`, error.message);
 
-                    const lines = buffer.split('\n');
-                    buffer = lines.pop() || '';
-
-                    for (const line of lines) {
-                        if (line.trim() === '' || line.trim() === 'data: [DONE]') continue;
-                        if (line.startsWith('data: ')) {
-                            try {
-                                const data = JSON.parse(line.slice(6));
-                                const content = data.choices?.[0]?.delta?.content || '';
-                                if (content) {
-                                    fullText += content;
-                                    hasContent = true;
-                                    // 不再直接发送原始内容
-                                }
-                            } catch { /* ignore parse error */ }
-                        }
-                    }
+                retryCount++;
+                if (retryCount <= maxRetries) {
+                    console.log(`[AI重试] ${this.player.position}号 准备重试...`);
+                    continue;
                 }
 
-                if (!hasContent || fullText.trim().length < 5) {
-                    throw new Error('Empty response from API');
+                // 最后一次失败，返回兜底逻辑
+                if (hardConstraints && hardConstraints.forcedSuspicion >= 50) {
+                    const softPrefix = targetIsHuman ? '我理解你的想法，但我仍然有些担心' : '我仍然有些担心'
+                    return `${softPrefix}${hardConstraints.forcedTargetPosition}号，理由：${hardConstraints.forcedReason}。如果我有理解偏差，欢迎纠正。`
                 }
-
-                console.log(`[AI原始输出] ${this.player.position}号:\n${fullText.substring(0, 80)}...`);
-                
-                // 解析出公开发言（过滤掉内心OS）
-                const publicSpeech = this.parseSpeechOutput(fullText, topSuspect);
-                
-                // 模拟流式发送公开发言
-                if (onStream && publicSpeech) {
-                    const chars = publicSpeech.split('');
-                    for (let i = 0; i < chars.length; i++) {
-                        onStream(chars[i]);
-                        // 每3个字符暂停一下，模拟打字效果
-                        if (i % 3 === 0) {
-                            await new Promise(r => setTimeout(r, 15));
-                        }
-                    }
-                }
-                
-                console.log(`[AI发言] ${this.player.position}号 公开发言: "${publicSpeech.substring(0, 50)}..."`);
-                return publicSpeech;
-            } catch (error) {
-                clearTimeout(timeoutId);
-                throw error;
+                const softLine = targetIsHuman ? '我理解你的表达，或许可以再补充一些线索' : '或许可以再补充一些线索'
+                return `我个人的看法是 ${topSuspect.targetPosition} 号位可能有些可疑，${softLine}，我们一起继续探讨。`;
             }
-        };
-
-        // 🔧 简化逻辑：直接调用API，超时后降级，避免Promise.race导致的并发问题
-        try {
-            const result = await apiCall();
-            return result;
-        } catch (error: any) {
-            const isTimeout = error.name === 'AbortError';
-            console.error(`[AI发言生成] ${this.player.position}号 失败: ${isTimeout ? '超时' : error.message}`);
-
-            // 降级到本地启发式发言
-            console.log(`[AI降级] ${this.player.position}号 启用本地兜底发言`);
-            const fallbackText = generateHeuristicFallback();
-
-            if (onStream) {
-                const chars = fallbackText.split('');
-                for (const char of chars) {
-                    onStream(char);
-                    await new Promise(r => setTimeout(r, 25));
-                }
-            }
-
-            return fallbackText;
         }
+        return ''; // Should not reach here
     }
 
     /**
-     * 构建游戏上下文信息（优化版：更精简以减少token消耗和处理时间）
+     * 构建游戏上下文信息
      */
     private buildGameContext(topSuspect: SuspicionAnalysis, allAnalyses: SuspicionAnalysis[]): string {
         const alivePlayers = this.gameState.players
             .filter(p => p.is_alive)
-            .map(p => `${p.position}`)
-            .join(',');
+            .map(p => `${p.position}号`)
+            .join('、');
+
+        const deadPlayers = this.gameState.players
+            .filter(p => !p.is_alive)
+            .map(p => `${p.position} 号`)
+            .join('、');
 
         let specificInfo = '';
         const role = this.player.role;
 
-        // 角色特定信息（精简版）
+        // 角色特定信息
         if (role === 'seer') {
-            const hints = this.privateHints.length > 0 ? this.privateHints.slice(-3).join(';') : '无';
-            specificInfo = `查验:${hints}`;
+            const hints = this.privateHints.length > 0 ? this.privateHints.join('; ') : '暂无数据';
+            specificInfo += `\n你的查验历史: ${hints} `;
         } else if (role === 'witch') {
             const { antidote, poison } = this.gameState.witchPotions || { antidote: false, poison: false };
-            specificInfo = `药:${antidote ? '解✓' : '解✗'}${poison ? '毒✓' : '毒✗'}`;
+            specificInfo += `\n你的药剂状态: 解药${antidote ? '可用' : '已用'}，毒药${poison ? '可用' : '已用'} `;
+        } else if (role === 'guard') {
+            // TODO: 获取守护历史
+            specificInfo += `\n你的守护历史: (暂无数据)`;
         }
 
-        // 简要的场上局势分析（只取前2个最可疑）
+        // 简要的场上局势分析（基于CoT引擎）
         const suspicionSummary = allAnalyses
-            .slice(0, 2)
-            .map(a => `${a.targetPosition}号:${a.suspicionScore}分`)
-            .join(' ');
+            .slice(0, 3)
+            .map(a => `${a.targetPosition}号嫌疑度${a.suspicionScore} (理由: ${a.reasoning[0]?.conclusion || '直觉'
+                })`)
+            .join('\n');
 
-        // 最近发言摘要（只取最近4条，每条限制长度）
+        // 最近发言摘要（统一上下文，避免各说各话）
         const recentSpeeches = this.gameState.gameLog
             .filter(l => l.event === 'speech')
-            .slice(-4)
-            .map(l => {
-                const name = (l.details as any)?.senderName || '?';
-                const content = String((l.details as any)?.content || '').slice(0, 60);
-                return `${name}:${content}`;
-            })
-            .join('|');
+            .slice(-8)
+            .map(l => `${(l.details as any)?.senderName}: ${(l.details as any)?.content} `)
+            .join('\n');
 
-        return `R${this.gameState.currentRound} ${this.gameState.phase} 存活[${alivePlayers}] 我:${this.player.position}号${role} ${specificInfo}\n嫌疑:${suspicionSummary}\n近言:${recentSpeeches || '无'}`;
+        // 私有知识库概要（每个AI自己的记忆）
+        let knowledgeSummary = ''
+        const ak = this.gameState.agentKnowledge?.[this.player.id]
+        if (ak && ak.log.length) {
+            const lastK = ak.log.slice(-5).map(e => {
+                if (e.type === 'seer_check') return `查验 ${e.targetName || e.targetId}: ${e.result} `
+                if (e.type === 'witch_save') return `解药救 ${e.targetName || e.targetId} `
+                if (e.type === 'witch_poison') return `毒杀 ${e.targetName || e.targetId} `
+                if (e.type === 'guard_protect') return `守护 ${e.targetName || e.targetId} `
+                if (e.type === 'werewolf_team_kill') return `团队击杀 ${e.targetName || e.targetId} `
+                if (e.type === 'peace_night') return `平安夜：${e.text || ''} `
+                if (e.type === 'death') return `死亡 ${e.targetName || e.targetId} `
+                return e.text || e.type
+            }).join('\n')
+            knowledgeSummary = `\n你的记忆摘要: \n${lastK} `
+        }
+
+        return `
+当前是第 ${this.gameState.currentRound} 天 ${this.gameState.phase}。
+存活玩家: ${alivePlayers}
+死亡玩家: ${deadPlayers || '无'}
+你的位置: ${this.player.position} 号
+你的身份: ${role}
+${specificInfo}
+${knowledgeSummary}
+
+场上嫌疑分析(仅供参考):
+${suspicionSummary}
+
+近期发言记录:
+  ${recentSpeeches || '暂无'}
+`;
     }
 
     /**
-     * 解析AI输出，提取公开具体发言（过滤内心OS）
+     * 解析AI输出，提取公开具体发言
      */
     private parseSpeechOutput(text: string, topSuspect: SuspicionAnalysis): string {
-        // 方法1: 尝试提取 [公开具体发言] 后的内容
-        const speechMatch = text.match(/\[公开具体发言\]\s*([\s\S]*?)(?:\[|$)/);
+        // 尝试提取 [公开具体发言] 后的内容
+        const speechMatch = text.match(/\[公开具体发言\]\s*([\s\S]*)/);
         if (speechMatch && speechMatch[1]) {
-            const speech = speechMatch[1].trim().replace(/^[""]|[""]$/g, '');
-            if (speech.length > 5) {
-                console.log(`[解析] 提取公开发言: "${speech.substring(0, 50)}..."`);
-                return speech;
-            }
+            return speechMatch[1].trim().replace(/^["“]|["”]$/g, ''); // 去除首尾引号
         }
 
-        // 方法2: 尝试提取引号内的内容（通常是公开发言）
-        const quoteMatch = text.match(/[""]([^""]{10,})[""](?!.*[""][^""]{10,}[""])/);
-        if (quoteMatch && quoteMatch[1]) {
-            const speech = quoteMatch[1].trim();
-            // 确保不是内心OS
-            if (!speech.includes('[内心OS]') && !speech.includes('局势判断')) {
-                console.log(`[解析] 提取引号发言: "${speech.substring(0, 50)}..."`);
-                return speech;
+        // 如果格式不对，尝试提取最后一段
+        const lines = text.split('\n').filter(l => l.trim().length > 0);
+        if (lines.length > 0) {
+            const lastLine = lines[lines.length - 1];
+            // 如果最后一段太短，可能是标签，取倒数第二段
+            if (lastLine.length < 10 && lines.length > 1) {
+                return lines[lines.length - 2].replace(/^["“]|["”]$/g, '');
             }
+            return lastLine.replace(/^["“]|["”]$/g, '');
         }
 
-        // 方法3: 过滤掉内心OS，取剩余内容
-        let cleanText = text;
-        // 移除 [内心OS] 到 [公开具体发言] 之间的内容
-        cleanText = cleanText.replace(/\[内心OS\][\s\S]*?(?=\[公开具体发言\]|$)/g, '');
-        // 移除标签
-        cleanText = cleanText.replace(/\[公开具体发言\]/g, '');
-        cleanText = cleanText.replace(/\[内心OS\]/g, '');
-        cleanText = cleanText.trim();
-
-        if (cleanText.length > 10) {
-            // 取最后一个有意义的段落
-            const lines = cleanText.split('\n').filter(l => l.trim().length > 10);
-            if (lines.length > 0) {
-                const lastLine = lines[lines.length - 1].replace(/^[""]|[""]$/g, '').trim();
-                console.log(`[解析] 提取最后段落: "${lastLine.substring(0, 50)}..."`);
-                return lastLine;
-            }
-        }
-
-        // 兜底
-        console.log(`[解析] 使用兜底发言`);
-        return `我觉得${topSuspect.targetPosition}号位比较可疑。`;
+        return `我觉得${topSuspect.targetPosition} 号位比较可疑。`;
     }
 
     /**

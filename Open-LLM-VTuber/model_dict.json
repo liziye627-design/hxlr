@@ -1,0 +1,229 @@
+[
+  {
+    "name": "mao_pro",
+    "description": "Default Mao Pro model",
+    "url": "/live2d-models/mao_pro/runtime/mao_pro.model3.json",
+    "kScale": 0.5,
+    "initialXshift": 0,
+    "initialYshift": 0,
+    "kXOffset": 1150,
+    "idleMotionGroupName": "Idle",
+    "emotionMap": {
+      "neutral": 0,
+      "anger": 2,
+      "disgust": 2,
+      "fear": 1,
+      "joy": 3,
+      "smirk": 3,
+      "sadness": 1,
+      "surprise": 3
+    },
+    "tapMotions": {
+      "HitAreaHead": {
+        "": 1
+      },
+      "HitAreaBody": {
+        "": 1
+      }
+    }
+  },
+  {
+    "name": "shizuku",
+    "description": "Shizuku sample model",
+    "url": "/live2d-models/shizuku/runtime/shizuku.model3.json",
+    "kScale": 0.42,
+    "initialXshift": 0,
+    "initialYshift": 0,
+    "kXOffset": 1150,
+    "idleMotionGroupName": "Idle",
+    "emotionMap": {
+      "neutral": 0,
+      "anger": 2,
+      "disgust": 2,
+      "fear": 1,
+      "joy": 3,
+      "smirk": 3,
+      "sadness": 1,
+      "surprise": 3
+    },
+    "tapMotions": {
+      "HitAreaHead": {
+        "Tap": 1
+      },
+      "HitAreaBody": {
+        "Tap": 1
+      }
+    }
+  },
+  {
+    "name": "haru",
+    "description": "Live2D Cubism sample model Haru",
+    "url": "/live2d-models/haru/runtime/Haru.model3.json",
+    "kScale": 0.5,
+    "initialXshift": 0,
+    "initialYshift": 0,
+    "kXOffset": 1150,
+    "idleMotionGroupName": "Idle",
+    "emotionMap": {
+      "neutral": 0,
+      "anger": 2,
+      "disgust": 2,
+      "fear": 1,
+      "joy": 3,
+      "smirk": 3,
+      "sadness": 1,
+      "surprise": 3
+    },
+    "tapMotions": {
+      "HitAreaBody": {
+        "TapBody": 1
+      }
+    }
+  },
+  {
+    "name": "hiyori",
+    "description": "Live2D Cubism sample model Hiyori",
+    "url": "/live2d-models/hiyori/runtime/Hiyori.model3.json",
+    "kScale": 0.5,
+    "initialXshift": 0,
+    "initialYshift": 0,
+    "kXOffset": 1150,
+    "idleMotionGroupName": "Idle",
+    "emotionMap": {
+      "neutral": 0,
+      "anger": 2,
+      "disgust": 2,
+      "fear": 1,
+      "joy": 3,
+      "smirk": 3,
+      "sadness": 1,
+      "surprise": 3
+    },
+    "tapMotions": {
+      "HitAreaBody": {
+        "TapBody": 1
+      }
+    }
+  },
+  {
+    "name": "mark",
+    "description": "Live2D Cubism sample model Mark",
+    "url": "/live2d-models/mark/runtime/Mark.model3.json",
+    "kScale": 0.5,
+    "initialXshift": 0,
+    "initialYshift": 0,
+    "kXOffset": 1150,
+    "idleMotionGroupName": "Idle",
+    "emotionMap": {
+      "neutral": 0,
+      "anger": 2,
+      "disgust": 2,
+      "fear": 1,
+      "joy": 3,
+      "smirk": 3,
+      "sadness": 1,
+      "surprise": 3
+    },
+    "tapMotions": {}
+  },
+  {
+    "name": "natori",
+    "description": "Live2D Cubism sample model Natori",
+    "url": "/live2d-models/natori/runtime/Natori.model3.json",
+    "kScale": 0.5,
+    "initialXshift": 0,
+    "initialYshift": 0,
+    "kXOffset": 1150,
+    "idleMotionGroupName": "Idle",
+    "emotionMap": {
+      "neutral": 0,
+      "anger": 2,
+      "disgust": 2,
+      "fear": 1,
+      "joy": 3,
+      "smirk": 3,
+      "sadness": 1,
+      "surprise": 3
+    },
+    "tapMotions": {
+      "HitAreaBody": {
+        "TapBody": 1
+      }
+    }
+  },
+  {
+    "name": "ren",
+    "description": "Live2D Cubism sample model Ren",
+    "url": "/live2d-models/ren/runtime/Ren.model3.json",
+    "kScale": 0.5,
+    "initialXshift": 0,
+    "initialYshift": 0,
+    "kXOffset": 1150,
+    "idleMotionGroupName": "Idle",
+    "emotionMap": {
+      "neutral": 0,
+      "anger": 2,
+      "disgust": 2,
+      "fear": 1,
+      "joy": 3,
+      "smirk": 3,
+      "sadness": 1,
+      "surprise": 3
+    },
+    "tapMotions": {
+      "HitAreaBody": {
+        "TapBody": 1
+      }
+    }
+  },
+  {
+    "name": "rice",
+    "description": "Live2D Cubism sample model Rice",
+    "url": "/live2d-models/rice/runtime/Rice.model3.json",
+    "kScale": 0.5,
+    "initialXshift": 0,
+    "initialYshift": 0,
+    "kXOffset": 1150,
+    "idleMotionGroupName": "Idle",
+    "emotionMap": {
+      "neutral": 0,
+      "anger": 2,
+      "disgust": 2,
+      "fear": 1,
+      "joy": 3,
+      "smirk": 3,
+      "sadness": 1,
+      "surprise": 3
+    },
+    "tapMotions": {
+      "HitAreaBody": {
+        "TapBody": 1
+      }
+    }
+  },
+  {
+    "name": "wanko",
+    "description": "Live2D Cubism sample model Wanko",
+    "url": "/live2d-models/wanko/runtime/Wanko.model3.json",
+    "kScale": 0.5,
+    "initialXshift": 0,
+    "initialYshift": 0,
+    "kXOffset": 1150,
+    "idleMotionGroupName": "Idle",
+    "emotionMap": {
+      "neutral": 0,
+      "anger": 2,
+      "disgust": 2,
+      "fear": 1,
+      "joy": 3,
+      "smirk": 3,
+      "sadness": 1,
+      "surprise": 3
+    },
+    "tapMotions": {
+      "HitAreaBody": {
+        "TapBody": 1
+      }
+    }
+  }
+]

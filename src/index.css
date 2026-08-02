@@ -1,4 +1,6 @@
 /* stylelint-disable */
+@import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@300;400;500;600;700&family=Russo+One&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -181,5 +183,126 @@ All colors MUST be HSL.
 
   .backface-hidden {
     backface-visibility: hidden;
+  }
+
+  /* Energy Beam & Cyber Animations */
+  .animate-spin-slow {
+    animation: spin 8s linear infinite;
+  }
+
+  .animate-dash {
+    animation: dash 2s linear infinite;
+  }
+
+  @keyframes dash {
+    from {
+      stroke-dashoffset: 30;
+    }
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  /* Marquee animation */
+  .animate-marquee {
+    animation: marquee 15s linear infinite;
+  }
+
+  @keyframes marquee {
+    from {
+      transform: translateX(100%);
+    }
+    to {
+      transform: translateX(-100%);
+    }
+  }
+
+  /* Ping with custom duration */
+  .animate-ping-slow {
+    animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  /* Gaming UI Styles */
+  .neon-text {
+    text-shadow: 0 0 10px currentColor, 0 0 20px currentColor, 0 0 40px currentColor;
+  }
+
+  .neon-border {
+    box-shadow: 0 0 5px currentColor, 0 0 10px currentColor, inset 0 0 5px currentColor;
+  }
+
+  .glitch-animation {
+    animation: glitch 0.5s ease-in-out infinite alternate;
+  }
+
+  @keyframes glitch {
+    0% {
+      transform: translate(0);
+    }
+    20% {
+      transform: translate(-2px, 2px);
+    }
+    40% {
+      transform: translate(-2px, -2px);
+    }
+    60% {
+      transform: translate(2px, 2px);
+    }
+    80% {
+      transform: translate(2px, -2px);
+    }
+    100% {
+      transform: translate(0);
+    }
+  }
+
+  .scanline-overlay {
+    position: relative;
+  }
+
+  .scanline-overlay::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 255, 255, 0.03) 2px,
+      rgba(0, 255, 255, 0.03) 4px
+    );
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .gaming-card {
+    background: linear-gradient(180deg, rgba(26, 26, 46, 0.9) 0%, rgba(15, 15, 26, 0.95) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+  }
+
+  .gaming-card:hover {
+    border-color: rgba(124, 58, 237, 0.5);
+    box-shadow: 0 0 30px rgba(124, 58, 237, 0.2), inset 0 0 30px rgba(124, 58, 237, 0.05);
+  }
+
+  .stat-bar-glow {
+    filter: drop-shadow(0 0 4px currentColor);
+  }
+
+  .font-gaming {
+    font-family: 'Russo One', 'Chakra Petch', sans-serif;
+  }
+
+  .font-tech {
+    font-family: 'Chakra Petch', monospace;
   }
 }

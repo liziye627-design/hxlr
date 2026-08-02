@@ -5,6 +5,7 @@ import { Button } from '../../components/ui/button';
 import { Slider } from '../../components/ui/slider';
 import { Play, Pause, SkipBack, SkipForward, Download } from 'lucide-react';
 import { io, Socket } from 'socket.io-client';
+import { getSocketServerUrl } from '@/lib/runtimeUrls';
 
 interface ReplayEvent {
     timestamp: number;
@@ -41,8 +42,7 @@ export default function ReplayViewer() {
     useEffect(() => {
         if (!roomId) return;
 
-        const socketBase = (import.meta as any)?.env?.VITE_WS_URL || `${typeof window !== 'undefined' ? window.location.protocol : 'http:'}//${typeof window !== 'undefined' ? window.location.hostname : '127.0.0.1'}:${(import.meta as any)?.env?.VITE_SOCKET_PORT || 3001}`;
-        const socket = io(socketBase);
+        const socket = io(getSocketServerUrl());
         socketRef.current = socket;
 
         socket.emit('get_replay_data', { roomId }, (response: any) => {

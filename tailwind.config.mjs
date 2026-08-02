@@ -112,12 +112,23 @@ export default {
             transform: 'translateX(0)',
           },
         },
+        'gradient-x': {
+          '0%, 100%': {
+            'background-size': '200% 200%',
+            'background-position': 'left center',
+          },
+          '50%': {
+            'background-size': '200% 200%',
+            'background-position': 'right center',
+          },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
         'fade-in': 'fade-in 0.5s ease-out',
         'slide-in': 'slide-in 0.5s ease-out',
+        'gradient-x': 'gradient-x 3s ease infinite',
       },
     },
   },

@@ -31,7 +31,7 @@ VITE_APP_ID=app-7gn2vl8qe60x
 VITE_SUPABASE_URL=https://backend.appmiaoda.com/projects/supabase245135090743558144
 VITE_SUPABASE_ANON_KEY=***
 VITE_API_ENV=production
-VITE_DEEPSEEK_API_KEY=sk-ruihuswjdpqyjcaijqpnjazjjyqofjuiytkjfnvzlsnvegxf
+VITE_DEEPSEEK_API_KEY=your_deepseek_api_key
 VITE_DEEPSEEK_API_URL=https://api.siliconflow.cn/v1/chat/completions
 VITE_DEEPSEEK_MODEL=deepseek-ai/DeepSeek-V3.1-Terminus
 ```

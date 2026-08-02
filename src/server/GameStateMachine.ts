@@ -317,12 +317,9 @@ export class GameStateMachine {
   }
 
   private nextSpeaker(): void {
-    console.log(`[NextSpeaker] currentIndex=${this.room.currentSpeakerIndex}, orderLength=${this.room.currentSpeakerOrder?.length}`);
-    
     const nextIndex = this.room.currentSpeakerIndex + 1;
 
     if (nextIndex >= this.room.currentSpeakerOrder.length) {
-      console.log(`[NextSpeaker] 所有人发言完毕，进入投票阶段`);
       this.transitionTo('DAY_VOTE');
       return;
     }
@@ -331,11 +328,8 @@ export class GameStateMachine {
     const nextId = this.room.currentSpeakerOrder[nextIndex];
     const nextPlayer = this.room.players.find(p => p.id === nextId);
 
-    console.log(`[NextSpeaker] 下一个发言者: ${nextPlayer?.position}号 ${nextPlayer?.name} (${nextPlayer?.type})`);
-
     // Skip dead players (just in case)
     if (!nextPlayer || !nextPlayer.is_alive) {
-      console.log(`[NextSpeaker] 跳过死亡玩家`);
       this.nextSpeaker();
       return;
     }
@@ -352,64 +346,24 @@ export class GameStateMachine {
   }
 
   public handleSpeechEnd(playerId: string): void {
-    console.log(`[SpeechEnd] playerId=${playerId}, currentSpeakerId=${this.room.currentSpeakerId}, phase=${this.room.phase}`);
-    
-    // 🔧 放宽检查：只要是发言阶段就允许推进
-    if (this.room.phase !== 'DAY_DISCUSS' && this.room.phase !== 'DAY_DEATH_LAST_WORDS') {
-      console.log(`[SpeechEnd] 跳过：不在发言阶段`);
-      return;
-    }
-    
-    // 标记玩家已发言
+    if (this.room.currentSpeakerId !== playerId) return;
     const p = this.room.players.find(pl => pl.id === playerId);
     if (p) p.hasSpokenThisRound = true;
-    
-    // 遗言阶段特殊处理
     if (this.room.phase === 'DAY_DEATH_LAST_WORDS') {
       this.room.pendingLastWordsPlayerId = null;
       this.handleSpecialPhaseEnd();
       return;
     }
-    
-    // 只有当前发言者才能触发下一个
-    if (this.room.currentSpeakerId !== playerId) {
-      console.log(`[SpeechEnd] 跳过：不是当前发言者`);
-      return;
-    }
-    
     this.nextSpeaker();
   }
 
   private async handleAISpeakerTurn(player: RoomPlayer): Promise<void> {
-    console.log(`[AI Turn] 开始处理 ${player.position}号 ${player.name} 的发言`);
-    
     if (!this.room.aiThinkingIds) this.room.aiThinkingIds = [];
     this.room.aiThinkingIds.push(player.id);
     this.io.to(this.room.id).emit('ai_thinking', { playerId: player.id, thinking: true });
 
     const agent = this.aiAgents.get(player.id);
     let speech = "";
-    let hasStartedStreaming = false;
-    
-    if (!agent) {
-      console.error(`[AI Turn] 错误：找不到 ${player.position}号 的AI代理`);
-      speech = "我过。";
-    }
-
-    // 定义流式回调（在首个chunk到达时立即触发预加载）
-    const onStream = (chunk: string) => {
-      this.io.to(this.room.id).emit('ai_speech_chunk', {
-        playerId: player.id,
-        chunk: chunk
-      });
-      
-      // 🚀 激进优化：首个chunk到达时立即开始预加载下一个AI
-      if (!hasStartedStreaming) {
-        hasStartedStreaming = true;
-        this.prefetchNextAISpeech();
-      }
-    };
-
     if (agent) {
       try {
         let resultPromise: Promise<any>;
@@ -425,31 +379,14 @@ export class GameStateMachine {
             playerId: player.id,
             prefetching: false
           });
-          
-          // 缓存命中时也要触发预加载
-          this.prefetchNextAISpeech();
         } else {
           console.log(`[Cache Miss] ${player.position}号 实时思考`);
           agent.updateGameState(this.room);
-          // 传入流式回调
-          resultPromise = agent.generateDaySpeech(onStream);
+          resultPromise = agent.generateDaySpeech();
         }
 
         const result = await resultPromise;
         speech = result.speech;
-
-        // 如果是缓存命中，模拟快速打字效果以保持一致体验
-        if (!hasStartedStreaming && speech) {
-          const chars = speech.split('');
-          for (let i = 0; i < chars.length; i++) {
-            this.io.to(this.room.id).emit('ai_speech_chunk', {
-              playerId: player.id,
-              chunk: chars[i]
-            });
-            // 每5个字符暂停一下，模拟打字效果
-            if (i % 5 === 0) await this.delay(20);
-          }
-        }
 
         if (result.debugUpdates && result.debugUpdates.length > 0) {
           this.io.to(this.room.id).emit('ai_suspicion_update', {
@@ -467,84 +404,50 @@ export class GameStateMachine {
     this.room.aiThinkingIds = this.room.aiThinkingIds.filter(id => id !== player.id);
     this.io.to(this.room.id).emit('ai_thinking', { playerId: player.id, thinking: false });
 
-    console.log(`[AI Turn] ${player.position}号 发言完成: "${speech?.substring(0, 30)}..."`);
-
-    if (speech && speech.length > 0 && speech !== "我过。") {
-      // 正常发言：广播消息，等待前端TTS结束后再推进
+    if (speech) {
       this.broadcastChat(player.id, player.name, speech, 'speech');
-      
-      // 🔧 根据发言长度估算TTS时长，等待TTS播放完毕后再推进
-      // 中文语速约 4-5 字/秒，加上缓冲
-      const estimatedTTSDuration = Math.max(2000, speech.length * 200 + 1000);
-      console.log(`[AI Turn] ${player.position}号 等待TTS播放 ${estimatedTTSDuration}ms`);
-      await this.delay(estimatedTTSDuration);
+
+      // 🔑 立即触发下一个AI开始预思考
+      this.prefetchNextAISpeech();
+
+      // 由前端在TTS结束后主动发送 speech_end；不再使用固定超时推进
     } else {
-      // 发言失败或跳过：广播系统消息
-      console.log(`[AI Turn] ${player.position}号 跳过发言`);
-      this.broadcastSystemMessage(`${player.name} 跳过发言`);
-      await this.delay(500);
+      this.handleSpeechEnd(player.id);
     }
-    
-    // 推进到下一个发言者
-    console.log(`[AI Turn] ${player.position}号 准备调用 handleSpeechEnd`);
-    this.handleSpeechEnd(player.id);
-    console.log(`[AI Turn] ${player.position}号 handleSpeechEnd 调用完成`);
-  }
-  
-  // 广播系统消息
-  private broadcastSystemMessage(message: string): void {
-    const systemMessage = {
-      id: `sys_${Date.now()}`,
-      senderId: 'system',
-      senderName: '系统',
-      content: message,
-      timestamp: new Date().toISOString(),
-      phase: this.room.phase,
-      type: 'system' as const
-    };
-    this.io.to(this.room.id).emit('chat_message', systemMessage);
   }
 
-  // 预加载下一个AI的发言（激进版：预加载多个连续AI）
+  // 预加载下一个AI的发言
   private prefetchNextAISpeech(): void {
     const currentIndex = this.room.currentSpeakerIndex ?? 0;
     const speakerOrder = this.room.currentSpeakerOrder || [];
 
-    // 🚀 激进预加载：预加载接下来最多2个AI玩家
-    const MAX_PREFETCH = 2;
-    let prefetchCount = 0;
-
-    for (let offset = 1; offset <= 3 && prefetchCount < MAX_PREFETCH; offset++) {
-      const targetIndex = currentIndex + offset;
-      if (targetIndex >= speakerOrder.length) break;
-
-      const targetPlayerId = speakerOrder[targetIndex];
-      const targetPlayer = this.room.players.find(p => p.id === targetPlayerId);
+    if (currentIndex + 1 < speakerOrder.length) {
+      const nextPlayerId = speakerOrder[currentIndex + 1];
+      const nextPlayer = this.room.players.find(p => p.id === nextPlayerId);
 
       // 只对AI玩家预加载
-      if (targetPlayer && targetPlayer.type === 'ai') {
-        const agent = this.aiAgents.get(targetPlayerId);
-        if (agent && !this.aiSpeechCache.has(targetPlayerId)) {
-          console.log(`[Prefetch] ${targetPlayer.position}号 开始预思考 (offset=${offset})...`);
+      if (nextPlayer && nextPlayer.type === 'ai') {
+        const agent = this.aiAgents.get(nextPlayerId);
+        if (agent && !this.aiSpeechCache.has(nextPlayerId)) {
+          console.log(`[Prefetch] ${nextPlayer.position}号 开始预思考...`);
 
-          // 更新游戏状态，确保AI看到最新的发言
+          // 更新游戏状态，确保AI看到最新的发言（包括刚刚广播的）
           agent.updateGameState(this.room);
 
           // 异步开始思考，不阻塞当前流程
           const speechPromise = agent.generateDaySpeech().catch(error => {
-            console.error(`[Prefetch] ${targetPlayer.position}号 预思考失败:`, error);
+            console.error(`[Prefetch] ${nextPlayer.position}号 预思考失败:`, error);
+            // 返回降级发言，不影响主流程
             return { speech: "我需要再观察观察。", reasoning: [] };
           });
 
-          this.aiSpeechCache.set(targetPlayerId, speechPromise);
+          this.aiSpeechCache.set(nextPlayerId, speechPromise);
 
-          // 前端显示预思考状态
+          // 前端显示预思考状态（可选）
           this.io.to(this.room.id).emit('ai_prefetching', {
-            playerId: targetPlayerId,
+            playerId: nextPlayerId,
             prefetching: true
           });
-
-          prefetchCount++;
         }
       }
     }
@@ -1500,8 +1403,6 @@ export class GameStateMachine {
 
   // 广播聊天消息
   private broadcastChat(playerId: string, playerName: string, message: string, type: 'speech' | 'chat' = 'chat'): void {
-    console.log(`[BroadcastChat] 发送消息: ${playerName} (${type}): "${message.substring(0, 30)}..."`);
-    
     const chatMessage = {
       id: `${Date.now()}_${playerId}`,
       senderId: playerId,
@@ -1526,7 +1427,6 @@ export class GameStateMachine {
 
     // Emit chat message via Socket.IO
     this.io.to(this.room.id).emit('chat_message', chatMessage);
-    console.log(`[BroadcastChat] 消息已发送到房间 ${this.room.id}`);
 
     // Record replay event
     this.recorder.addEvent(type === 'speech' ? 'speech' : 'chat', {

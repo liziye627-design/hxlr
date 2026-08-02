@@ -13,7 +13,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const SUPABASE_URL = 'https://backend.appmiaoda.com/projects/supabase245135090743558144';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoyMDc3ODcxOTYwLCJpc3MiOiJzdXBhYmFzZSIsInJvbGUiOiJhbm9uIiwic3ViIjoiYW5vbiJ9.ZWwiHivbLSxrXaQWsyJNOUHwUoljBVBgnImFJ2GwI98';
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!SUPABASE_KEY) {
+    throw new Error('SUPABASE_SERVICE_ROLE_KEY is required');
+}
 
 async function applyMigration() {
     try {

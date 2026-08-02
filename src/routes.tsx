@@ -1,3 +1,10 @@
+import type { ReactNode } from 'react';
+import Partner from './pages/Partner';
+import Play from './pages/Play';
+import Chat from './pages/Chat';
+import TeammateSelect from './pages/TeammateSelect';
+import TeammateSelectV2 from './pages/TeammateSelectV2';
+import AvatarStage from './pages/AvatarStage';
 import Home from './pages/Home';
 import Companions from './pages/Companions';
 import Werewolf from './pages/Werewolf';
@@ -8,13 +15,9 @@ import WerewolfGameView from './pages/werewolf/WerewolfGameView';
 import ReplayViewer from './pages/werewolf/ReplayViewer';
 import JubenshaLobby from './pages/jubensha/JubenshaLobby';
 import JubenshaGameRoom from './pages/jubensha/JubenshaGameRoom';
-import ITGameRoom from './pages/jubensha/ITGameRoom';
-import SchoolRulesGame from './pages/jubensha/SchoolRulesGame';
-import PaydayGame from './pages/jubensha/PaydayGame';
-import YandereGame from './pages/jubensha/YandereGame';
+import ScriptUpload from './pages/jubensha/ScriptUpload';
 import Adventure from './pages/Adventure';
 import Rankings from './pages/Rankings';
-import type { ReactNode } from 'react';
 
 interface RouteConfig {
   name: string;
@@ -27,14 +30,56 @@ const routes: RouteConfig[] = [
   {
     name: '首页',
     path: '/',
-    element: <Home />,
+    element: <Partner />,
     visible: true,
   },
   {
-    name: 'AI伴侣',
-    path: '/companions',
-    element: <Companions />,
+    name: '首页',
+    path: '/partner',
+    element: <Partner />,
     visible: true,
+  },
+  {
+    name: '玩法',
+    path: '/play',
+    element: <Play />,
+    visible: true,
+  },
+  {
+    name: '队友',
+    path: '/chat',
+    element: <TeammateSelect />,
+    visible: true,
+  },
+  {
+    name: '队友V2',
+    path: '/chat/v2',
+    element: <TeammateSelectV2 />,
+    visible: true,
+  },
+  {
+    name: '对话',
+    path: '/chat/room',
+    element: <Chat />,
+    visible: false,
+  },
+  {
+    name: '形象馆',
+    path: '/avatar-stage',
+    element: <AvatarStage />,
+    visible: false,
+  },
+  {
+    name: '旧首页',
+    path: '/home-old',
+    element: <Home />,
+    visible: false,
+  },
+  {
+    name: '旧陪玩页',
+    path: '/companions-old',
+    element: <Companions />,
+    visible: false,
   },
   {
     name: '狼人杀',
@@ -49,25 +94,19 @@ const routes: RouteConfig[] = [
     visible: false,
   },
   {
-    name: '狼人杀联机',
-    path: '/werewolf/multiplayer',
-    element: <MultiplayerGameRoom />,
-    visible: false,
-  },
-  {
-    name: '狼人杀-旧版1',
+    name: '狼人杀旧版1',
     path: '/werewolf/old/v1',
     element: <Werewolf />,
     visible: false,
   },
   {
-    name: '狼人杀-旧版2',
+    name: '狼人杀旧版2',
     path: '/werewolf/old/v2',
     element: <WerewolfGameView />,
     visible: false,
   },
   {
-    name: '狼人杀-旧版3',
+    name: '狼人杀旧版3',
     path: '/werewolf/old/v3',
     element: <GameRoom />,
     visible: false,
@@ -85,27 +124,9 @@ const routes: RouteConfig[] = [
     visible: false,
   },
   {
-    name: '小丑回魂',
-    path: '/script-murder/it',
-    element: <ITGameRoom />,
-    visible: false,
-  },
-  {
-    name: '第二十二条校规',
-    path: '/script-murder/school-rules',
-    element: <SchoolRulesGame />,
-    visible: false,
-  },
-  {
-    name: '收获日',
-    path: '/script-murder/payday',
-    element: <PaydayGame />,
-    visible: false,
-  },
-  {
-    name: '病娇男孩的精分日记',
-    path: '/script-murder/yandere',
-    element: <YandereGame />,
+    name: '上传剧本',
+    path: '/script-murder/upload',
+    element: <ScriptUpload />,
     visible: false,
   },
   {
@@ -115,13 +136,19 @@ const routes: RouteConfig[] = [
     visible: true,
   },
   {
-    name: '剧本杀(新)',
+    name: '剧本杀旧入口',
     path: '/jubensha',
     element: <JubenshaLobby />,
     visible: false,
   },
   {
-    name: '数字冒险',
+    name: 'Minecraft',
+    path: '/minecraft',
+    element: <Adventure />,
+    visible: false,
+  },
+  {
+    name: 'Minecraft Legacy',
     path: '/adventure',
     element: <Adventure />,
     visible: false,

@@ -7,19 +7,29 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-# Dependencies
 node_modules
-
-# Build output
 dist
 dist-ssr
 output
 *.local
+package-lock.json
 
-# Environment files (重要：保护 API Key)
+# Local secrets and machine-specific configuration
 .env
 .env.*
 !.env.example
+config/*.local.json
+third_party/mindcraft/keys.json
+
+# Local runtimes, downloaded models, and generated workspaces
+Open-LLM-VTuber/.venv/
+Open-LLM-VTuber/venv2/
+Open-LLM-VTuber/models/
+.tmp/
+.vercel/
+.kiro/
+.trae/
+/C*/
 
 # Editor directories and files
 .vscode/*
@@ -31,15 +41,7 @@ output
 *.njsproj
 *.sln
 *.sw?
-
-# Project specific
 .sync
 history/*.json
 .vite_cache
 TODO.md
-
-
-# 其他
-*.tgz
-.npm
-.eslintcache
