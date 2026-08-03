@@ -1,0 +1,327 @@
+{
+  "version": "1.0.0",
+  "description": "Minecraft 数字人角色形象配置",
+  "characters": {
+    "ren": {
+      "displayName": "Ren",
+      "title": "全能主陪",
+      "type": "aqua",
+      "colorTheme": {
+        "primary": "#4ecdc4",
+        "secondary": "#7ee8e0",
+        "accent": "#c0fff8",
+        "background": "linear-gradient(135deg, #1a3a38 0%, #0d1215 100%)",
+        "glow": "rgba(78, 205, 196, 0.3)"
+      },
+      "images": {
+        "main": "/agent-portraits/ren.png",
+        "alt1": "/agent-portraits/ren-action.png",
+        "alt2": "/agent-portraits/ren-portrait.png",
+        "card": "/agent-portraits/ren-card.png"
+      },
+      "appearance": {
+        "hair": "黑色中长发，沉稳的眼神",
+        "eyes": "深蓝色，平静而睿智",
+        "outfit": "休闲运动风格搭配",
+        "accessories": "简约的腕表",
+        "expression": "温和而自信的微笑"
+      },
+      "personality": {
+        "traits": ["可靠", "全能", "温和", "专业"],
+        "style": "Balanced All-Rounder",
+        "motto": "你先选玩法，后面的节奏我陪你一起走。"
+      },
+      "uiConfig": {
+        "cardGradient": "linear-gradient(180deg, rgba(78,205,196,0.15) 0%, transparent 50%)",
+        "borderColor": "rgba(78,205,196,0.3)",
+        "textHighlight": "#c0fff8"
+      }
+    },
+    "haru": {
+      "displayName": "Haru",
+      "title": "开局指挥",
+      "type": "alpha",
+      "colorTheme": {
+        "primary": "#ff6b4a",
+        "secondary": "#ff8a6d",
+        "accent": "#ffd0c0",
+        "background": "linear-gradient(135deg, #3a1a1a 0%, #0d1215 100%)",
+        "glow": "rgba(255, 107, 74, 0.3)"
+      },
+      "images": {
+        "main": "/agent-portraits/haru.png",
+        "alt1": "/agent-portraits/haru-action.png",
+        "alt2": "/agent-portraits/haru-portrait.png",
+        "card": "/agent-portraits/haru-card.png"
+      },
+      "appearance": {
+        "hair": "银白色短发",
+        "eyes": "红色眼眸，锐利而专注",
+        "outfit": "黑色西装外套内搭白衬衫，领口微敞",
+        "accessories": "金属质感的眼镜",
+        "expression": "冷静果断的神情"
+      },
+      "personality": {
+        "traits": ["冷静", "果断", "高效", "直接"],
+        "style": "Shotcaller",
+        "motto": "第一轮别乱说，先把桌上的节奏抢下来。"
+      },
+      "uiConfig": {
+        "cardGradient": "linear-gradient(180deg, rgba(255,107,74,0.15) 0%, transparent 50%)",
+        "borderColor": "rgba(255,107,74,0.3)",
+        "textHighlight": "#ffd0c0"
+      }
+    },
+    "hiyori": {
+      "displayName": "Hiyori",
+      "title": "温柔分析师",
+      "type": "aqua",
+      "colorTheme": {
+        "primary": "#64b5f6",
+        "secondary": "#90caf9",
+        "accent": "#e3f2fd",
+        "background": "linear-gradient(135deg, #1a2a3a 0%, #0d1215 100%)",
+        "glow": "rgba(100, 181, 246, 0.3)"
+      },
+      "images": {
+        "main": "/agent-portraits/hiyori.png",
+        "alt1": "/agent-portraits/hiyori-action.png",
+        "alt2": "/agent-portraits/hiyori-portrait.png",
+        "card": "/agent-portraits/hiyori-card.png"
+      },
+      "appearance": {
+        "hair": "浅蓝色长发",
+        "eyes": "温柔的眼眸",
+        "outfit": "淡雅的水手服",
+        "accessories": "精致的发饰",
+        "expression": "温暖亲切的笑容"
+      },
+      "personality": {
+        "traits": ["温柔", "细腻", "体贴", "善于倾听"],
+        "style": "Soft Analyst",
+        "motto": "把房间气氛交给我，我来帮你看谁最不自然。"
+      },
+      "uiConfig": {
+        "cardGradient": "linear-gradient(180deg, rgba(100,181,246,0.15) 0%, transparent 50%)",
+        "borderColor": "rgba(100,181,246,0.3)",
+        "textHighlight": "#e3f2fd"
+      }
+    },
+    "mao-pro": {
+      "displayName": "Mao Pro",
+      "title": "终局收口",
+      "type": "alpha",
+      "colorTheme": {
+        "primary": "#e53935",
+        "secondary": "#ef5350",
+        "accent": "#ffcdd2",
+        "background": "linear-gradient(135deg, #2a1a1a 0%, #0d1215 100%)",
+        "glow": "rgba(229, 57, 53, 0.3)"
+      },
+      "images": {
+        "main": "/agent-portraits/mao.png",
+        "alt1": "/agent-portraits/mao-action.png",
+        "alt2": "/agent-portraits/mao-portrait.png",
+        "card": "/agent-portraits/mao-card.png"
+      },
+      "appearance": {
+        "hair": "黑色短发配红色挑染",
+        "eyes": "锐利的眼神",
+        "outfit": "电竞风格服饰",
+        "accessories": "耳机和腕带",
+        "expression": "专注而自信"
+      },
+      "personality": {
+        "traits": ["爆发力强", "追求胜利", "专注", "关键时刻稳定"],
+        "style": "Closer",
+        "motto": "前面先收信息，最后一轮交给我来收口。"
+      },
+      "uiConfig": {
+        "cardGradient": "linear-gradient(180deg, rgba(229,57,53,0.15) 0%, transparent 50%)",
+        "borderColor": "rgba(229,57,53,0.3)",
+        "textHighlight": "#ffcdd2"
+      }
+    },
+    "mark": {
+      "displayName": "Mark",
+      "title": "冷静读盘手",
+      "type": "shadow",
+      "colorTheme": {
+        "primary": "#7e57c2",
+        "secondary": "#9575cd",
+        "accent": "#d1c4e9",
+        "background": "linear-gradient(135deg, #1a1a2a 0%, #0d1215 100%)",
+        "glow": "rgba(126, 87, 194, 0.3)"
+      },
+      "images": {
+        "main": "/agent-portraits/mark.png",
+        "alt1": "/agent-portraits/mark-action.png",
+        "alt2": "/agent-portraits/mark-portrait.png",
+        "card": "/agent-portraits/mark-card.png"
+      },
+      "appearance": {
+        "hair": "深棕色",
+        "eyes": "戴着眼镜，书卷气质",
+        "outfit": "简约的学院风格服装",
+        "accessories": "眼镜和笔记本",
+        "expression": "认真思考的神情"
+      },
+      "personality": {
+        "traits": ["理性", "分析型", "逻辑强", "数据驱动"],
+        "style": "Cold Reader",
+        "motto": "把投票顺序和冲突点给我，我来帮你拆桌。"
+      },
+      "uiConfig": {
+        "cardGradient": "linear-gradient(180deg, rgba(126,87,194,0.15) 0%, transparent 50%)",
+        "borderColor": "rgba(126,87,194,0.3)",
+        "textHighlight": "#d1c4e9"
+      }
+    },
+    "natori": {
+      "displayName": "Natori",
+      "title": "暖场搭子",
+      "type": "rookie",
+      "colorTheme": {
+        "primary": "#ffb74d",
+        "secondary": "#ffcc80",
+        "accent": "#fff8e1",
+        "background": "linear-gradient(135deg, #2a251a 0%, #0d1215 100%)",
+        "glow": "rgba(255, 183, 77, 0.3)"
+      },
+      "images": {
+        "main": "/agent-portraits/natori.png",
+        "alt1": "/agent-portraits/natori-action.png",
+        "alt2": "/agent-portraits/natori-portrait.png",
+        "card": "/agent-portraits/natori-card.png"
+      },
+      "appearance": {
+        "hair": "栗色长发",
+        "eyes": "温暖的笑容",
+        "outfit": "休闲舒适的穿搭风格",
+        "accessories": "可爱的发夹",
+        "expression": "亲切友善的表情"
+      },
+      "personality": {
+        "traits": ["亲和力强", "善于破冰", "轻松", "友善"],
+        "style": "Warm Lead",
+        "motto": "让我处理尴尬的第一分钟，你先观察桌面。"
+      },
+      "uiConfig": {
+        "cardGradient": "linear-gradient(180deg, rgba(255,183,77,0.15) 0%, transparent 50%)",
+        "borderColor": "rgba(255,183,77,0.3)",
+        "textHighlight": "#fff8e1"
+      }
+    },
+    "rice": {
+      "displayName": "Rice",
+      "title": "线索整理师",
+      "type": "shadow",
+      "colorTheme": {
+        "primary": "#81c784",
+        "secondary": "#a5d6a7",
+        "accent": "#e8f5e9",
+        "background": "linear-gradient(135deg, #1a2a1a 0%, #0d1215 100%)",
+        "glow": "rgba(129, 199, 132, 0.3)"
+      },
+      "images": {
+        "main": "/agent-portraits/rice.png",
+        "alt1": "/agent-portraits/rice-action.png",
+        "alt2": "/agent-portraits/rice-portrait.png",
+        "card": "/agent-portraits/rice-card.png"
+      },
+      "appearance": {
+        "hair": "米色短发",
+        "eyes": "认真专注的表情",
+        "outfit": "知性的毛衣开衫",
+        "accessories": "笔记本和笔",
+        "expression": "专注工作的神情"
+      },
+      "personality": {
+        "traits": ["细心", "记忆力强", "有条理", "严谨"],
+        "style": "Story Reader",
+        "motto": "把线索和矛盾都给我，我来帮你理顺。"
+      },
+      "uiConfig": {
+        "cardGradient": "linear-gradient(180deg, rgba(129,199,132,0.15) 0%, transparent 50%)",
+        "borderColor": "rgba(129,199,132,0.3)",
+        "textHighlight": "#e8f5e9"
+      }
+    },
+    "shizuku": {
+      "displayName": "Shizuku",
+      "title": "沉浸演绎者",
+      "type": "aqua",
+      "colorTheme": {
+        "primary": "#ce93d8",
+        "secondary": "#e1bee7",
+        "accent": "#f3e5f5",
+        "background": "linear-gradient(135deg, #2a1a2a 0%, #0d1215 100%)",
+        "glow": "rgba(206, 147, 216, 0.3)"
+      },
+      "images": {
+        "main": "/agent-portraits/shizuku.png",
+        "alt1": "/agent-portraits/shizuku-action.png",
+        "alt2": "/agent-portraits/shizuku-portrait.png",
+        "card": "/agent-portraits/shizuku-card.png"
+      },
+      "appearance": {
+        "hair": "深紫色长发",
+        "eyes": "神秘的眼眸",
+        "outfit": "优雅的长裙搭配",
+        "accessories": "精致的饰品",
+        "expression": "神秘而优雅的气质"
+      },
+      "personality": {
+        "traits": ["戏剧化", "有魅力", "有感染力", "善于营造气氛"],
+        "style": "Role Actor",
+        "motto": "如果房间需要气氛，把场景张力交给我。"
+      },
+      "uiConfig": {
+        "cardGradient": "linear-gradient(180deg, rgba(206,147,216,0.15) 0%, transparent 50%)",
+        "borderColor": "rgba(206,147,216,0.3)",
+        "textHighlight": "#f3e5f5"
+      }
+    },
+    "wanko": {
+      "displayName": "Wanko",
+      "title": "热场救火位",
+      "type": "rookie",
+      "colorTheme": {
+        "primary": "#ffa726",
+        "secondary": "#ffb74d",
+        "accent": "#fff3e0",
+        "background": "linear-gradient(135deg, #2a201a 0%, #0d1215 100%)",
+        "glow": "rgba(255, 167, 38, 0.3)"
+      },
+      "images": {
+        "main": "/agent-portraits/wanko.png",
+        "alt1": "/agent-portraits/wanko-action.png",
+        "alt2": "/agent-portraits/wanko-portrait.png",
+        "card": "/agent-portraits/wanko-card.png"
+      },
+      "appearance": {
+        "hair": "橙黄色短发",
+        "eyes": "活力四射的笑容",
+        "outfit": "运动风格穿搭",
+        "accessories": "运动发带",
+        "expression": "热情洋溢的表情"
+      },
+      "personality": {
+        "traits": ["热情", "活力满满", "善于调动气氛", "正能量"],
+        "style": "Hype Bench",
+        "motto": "房间一冷下来就叫我，我会把气氛抬回去。"
+      },
+      "uiConfig": {
+        "cardGradient": "linear-gradient(180deg, rgba(255,167,38,0.15) 0%, transparent 50%)",
+        "borderColor": "rgba(255,167,38,0.3)",
+        "textHighlight": "#fff3e0"
+      }
+    }
+  },
+  "defaultSettings": {
+    "animationDuration": 700,
+    "hoverScale": 1.04,
+    "cardBorderRadius": 34,
+    "shadowIntensity": "medium"
+  }
+}

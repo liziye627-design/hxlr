@@ -1,0 +1,41 @@
+{
+  "$schema": "./minecraft.config.schema.json",
+  "mindcraftRoot": "third_party/mindcraft",
+  "minecraftRoot": "",
+  "serverHost": "127.0.0.1",
+  "serverPort": 55916,
+  "minecraftVersion": "1.20.4",
+  "profiles": ["ren", "haru", "hiyori", "mao-pro", "mark", "natori", "rice", "shizuku", "wanko"],
+  "defaultProfile": "ren",
+  "features": {
+    "enableVoice": false,
+    "enableVision": true,
+    "enableMemory": true,
+    "enableTasks": true
+  },
+  "llm": {
+    "defaultApi": "anthropic",
+    "fallbackApi": "openai",
+    "maxRetries": 3,
+    "timeout": 30000
+  },
+  "memory": {
+    "maxHistoryTurns": 50,
+    "embeddingModel": "text-embedding-3-small",
+    "longTermMemory": true
+  },
+  "display": {
+    "theme": "dark",
+    "accentColors": {
+      "alpha": "#ff6b4a",
+      "aqua": "#4ecdc4",
+      "shadow": "#9d7aff",
+      "rookie": "#ffb347"
+    },
+    "animations": {
+      "cardFlip": true,
+      "hoverEffect": true,
+      "particleEffects": true
+    }
+  }
+}

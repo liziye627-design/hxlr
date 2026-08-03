@@ -1,0 +1,28 @@
+{
+  "pclPath": "C:\\Users\\llwxy\\Desktop\\PCL2_CE_Release_x64.exe",
+  "gameRoot": "C:\\Users\\llwxy\\Downloads\\.minecraft",
+  "versionName": "GD656极致生电整合包-1.21.4",
+  "instanceModsDir": "",
+  "modManifestPath": "config/minecraft.mod-manifest.example.json",
+  "mindcraftRoot": "third_party/mindcraft",
+  "serverHost": "127.0.0.1",
+  "serverPort": 55916,
+  "launchWaitSeconds": 5,
+  "defaultProfiles": [
+    "ren"
+  ],
+  "bots": [
+    {
+      "id": "ren",
+      "enabled": true,
+      "displayName": "Ren",
+      "workingDir": "third_party/mindcraft",
+      "command": "node",
+      "arguments": [
+        "main.js",
+        "--profiles",
+        "profiles/companion-ren.json"
+      ]
+    }
+  ]
+}
