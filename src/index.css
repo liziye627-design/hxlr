@@ -1,0 +1,185 @@
+/* stylelint-disable */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here.
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    --radius: 0.75rem;
+    --background: 220 25% 97%;
+    --foreground: 220 15% 15%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 15% 15%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 15% 15%;
+    --primary: 230 60% 50%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 250 70% 65%;
+    --secondary: 270 50% 55%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 220 15% 92%;
+    --muted-foreground: 220 10% 45%;
+    --accent: 270 60% 60%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 15% 88%;
+    --input: 220 15% 88%;
+    --ring: 230 60% 50%;
+    --chart-1: 230 60% 50%;
+    --chart-2: 270 50% 55%;
+    --chart-3: 250 70% 65%;
+    --chart-4: 210 70% 60%;
+    --chart-5: 290 60% 60%;
+    --gradient-primary: linear-gradient(135deg, hsl(230 60% 50%), hsl(270 50% 55%));
+    --gradient-secondary: linear-gradient(135deg, hsl(250 70% 65%), hsl(290 60% 60%));
+    --gradient-hero: linear-gradient(180deg, hsl(230 60% 50% / 0.1), hsl(270 50% 55% / 0.05));
+    --shadow-primary: 0 10px 30px -10px hsl(230 60% 50% / 0.3);
+    --shadow-glow: 0 0 40px hsl(250 70% 65% / 0.4);
+  }
+
+  .dark {
+    --background: 220 25% 8%;
+    --foreground: 220 15% 95%;
+    --card: 220 20% 12%;
+    --card-foreground: 220 15% 95%;
+    --popover: 220 20% 12%;
+    --popover-foreground: 220 15% 95%;
+    --primary: 230 60% 55%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 250 70% 70%;
+    --secondary: 270 50% 60%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 220 15% 18%;
+    --muted-foreground: 220 10% 60%;
+    --accent: 270 60% 65%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 65%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 15% 20%;
+    --input: 220 15% 20%;
+    --ring: 230 60% 55%;
+    --chart-1: 230 60% 55%;
+    --chart-2: 270 50% 60%;
+    --chart-3: 250 70% 70%;
+    --chart-4: 210 70% 65%;
+    --chart-5: 290 60% 65%;
+    --gradient-primary: linear-gradient(135deg, hsl(230 60% 55%), hsl(270 50% 60%));
+    --gradient-secondary: linear-gradient(135deg, hsl(250 70% 70%), hsl(290 60% 65%));
+    --gradient-hero: linear-gradient(180deg, hsl(230 60% 55% / 0.15), hsl(270 50% 60% / 0.08));
+    --shadow-primary: 0 10px 30px -10px hsl(230 60% 55% / 0.4);
+    --shadow-glow: 0 0 40px hsl(250 70% 70% / 0.5);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Montserrat', 'Noto Sans SC', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
+  }
+}
+
+@layer utilities {
+  .gradient-text {
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-glow)));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
+
+  .gradient-bg-primary {
+    background: var(--gradient-primary);
+  }
+
+  .gradient-bg-secondary {
+    background: var(--gradient-secondary);
+  }
+
+  .gradient-bg-hero {
+    background: var(--gradient-hero);
+  }
+
+  .mesh-bg {
+    background: radial-gradient(1000px 600px at 10% 10%, hsl(var(--primary) / 0.08), transparent),
+      radial-gradient(800px 500px at 90% 20%, hsl(var(--secondary) / 0.08), transparent),
+      radial-gradient(700px 500px at 50% 90%, hsl(var(--accent) / 0.06), transparent),
+      var(--gradient-hero);
+  }
+
+  .shadow-primary {
+    box-shadow: var(--shadow-primary);
+  }
+
+  .shadow-glow {
+    box-shadow: var(--shadow-glow);
+  }
+
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+
+  .animate-pulse-slow {
+    animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  /* Entry animations */
+  .animate-fade-up {
+    animation: fade-up 0.6s ease-out both;
+  }
+  @keyframes fade-up {
+    0% { opacity: 0; transform: translateY(16px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Glassmorphism utilities */
+  .glass {
+    background-color: hsl(var(--card) / 0.6);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid hsl(var(--border) / 0.4);
+  }
+  .glass-strong {
+    background-color: hsl(var(--card) / 0.4);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid hsl(var(--border) / 0.5);
+  }
+
+  /* Colored shadow helpers */
+  .shadow-colored-primary { box-shadow: 0 12px 32px -10px hsl(var(--primary) / 0.35); }
+  .shadow-colored-secondary { box-shadow: 0 12px 32px -10px hsl(var(--secondary) / 0.35); }
+
+  /* Parallax helpers */
+  .parallax-layer { will-change: transform; }
+
+  /* 3D Card Flip Utilities */
+  .perspective-1000 {
+    perspective: 1000px;
+  }
+
+  .preserve-3d {
+    transform-style: preserve-3d;
+  }
+
+  .backface-hidden {
+    backface-visibility: hidden;
+  }
+}

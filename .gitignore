@@ -1,0 +1,55 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Dependencies
+node_modules
+
+# Build output
+dist
+dist-ssr
+output
+*.local
+
+# Environment files (重要：保护 API Key)
+.env
+.env.*
+!.env.example
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Project specific
+.sync
+history/*.json
+.vite_cache
+TODO.md
+
+# IDE configs (should not be committed)
+.kiro/
+.trae/
+.vercel/
+
+# Python
+__pycache__/
+*.pyc
+jubensha-backend/
+
+
+# 其他
+*.tgz
+.npm
+.eslintcache

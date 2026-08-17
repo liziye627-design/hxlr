@@ -1,0 +1,13 @@
+{
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "frame-ancestors 'self' https://*.vercel.app http://127.0.0.1:5200 http://localhost:5200"
+        }
+      ]
+    }
+  ]
+}
