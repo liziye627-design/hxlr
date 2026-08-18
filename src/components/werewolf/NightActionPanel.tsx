@@ -3,6 +3,7 @@ import { Sword, Eye, Droplet, Shield, Heart, Skull } from 'lucide-react';
 import type { WerewolfPlayer } from '../../types';
 import { Button } from '../ui/button';
 import { PlayerGrid } from './PlayerGrid';
+import { ActionConfirmDialog } from './ActionConfirmDialog'; // Import the new dialog
 
 interface NightActionPanelProps {
   myRole: string;
@@ -13,6 +14,7 @@ interface NightActionPanelProps {
   nightHintTargetRole?: string;
   nightHintTargetPosition?: number;
   onActionSubmit: (actionType: string, targetId: string | null) => void;
+  compact?: boolean;
 }
 
 const ROLE_ACTIONS: Record<
@@ -64,15 +66,16 @@ export const NightActionPanel = ({
   nightHintTargetRole,
   nightHintTargetPosition,
   onActionSubmit,
+  compact = false,
 }: NightActionPanelProps) => {
   const [selectedTarget, setSelectedTarget] = useState<string | null>(null);
   const [witchAction, setWitchAction] = useState<'save' | 'poison' | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false); // State for Dialog
 
   const roleAction = ROLE_ACTIONS[myRole];
 
   if (!roleAction) {
-    // Villager or unknown role - no night action
     return (
       <div className="p-8 text-center">
         <div className="text-slate-400 text-lg">您的角色在夜晚没有特殊行动</div>
@@ -81,20 +84,34 @@ export const NightActionPanel = ({
     );
   }
 
-  const handleSubmit = () => {
+  // Pre-check for Witch Save (auto-select victim)
+  const handleWitchSaveSelect = () => {
+    setWitchAction('save');
+    if (nightHintTargetId) {
+      setSelectedTarget(nightHintTargetId);
+    }
+  };
+
+  const handleActionClick = () => {
+    // Open Dialog instead of direct submit
+    setIsConfirmDialogOpen(true);
+  };
+
+  const handleConfirmSubmit = () => {
     let actionType = roleAction.actionType;
 
     // Witch special handling
     if (myRole === 'witch' && witchAction) {
-      // 使用解药时，默认目标为 nightHintTargetId
       if (witchAction === 'save' && nightHintTargetId) {
-        setSelectedTarget(nightHintTargetId);
+        // Double check target is set for safety, though handled in onClick
+        // setSelectedTarget(nightHintTargetId); 
       }
       actionType = witchAction;
     }
 
     onActionSubmit(actionType, selectedTarget);
     setSubmitted(true);
+    setIsConfirmDialogOpen(false);
   };
 
   if (submitted) {
@@ -107,7 +124,6 @@ export const NightActionPanel = ({
   }
 
   const Icon = roleAction.icon;
-  // 目标选择：女巫使用解药时仅可选择被刀目标；毒药可选择任意存活（可含自保策略）
   const eligiblePlayers = (() => {
     const base = players.filter((p) => p.is_alive && (roleAction.canTargetSelf || p.id !== myId));
     if (myRole === 'witch' && witchAction === 'save' && nightHintTargetId) {
@@ -116,17 +132,25 @@ export const NightActionPanel = ({
     return base;
   })();
 
+  // Construct titles for dialog
+  const targetPlayer = players.find(p => p.id === selectedTarget);
+  const dialogTitle = myRole === 'witch'
+    ? (witchAction === 'save' ? '确认使用解药？' : '确认使用毒药？')
+    : roleAction.label.replace('选择', '确认');
+
+  const dialogActionType = (myRole === 'witch' ? witchAction : roleAction.actionType) as any;
+
   return (
-    <div className="space-y-6">
+    <div className={compact ? "space-y-2" : "space-y-6"}>
       {/* Action Header */}
-      <div className="bg-gradient-to-r from-indigo-900/50 to-purple-900/50 p-6 rounded-lg border border-indigo-700">
+      <div className={`${compact ? 'p-3' : 'p-6'} bg-gradient-to-r from-indigo-900/50 to-purple-900/50 rounded-lg border border-indigo-700`}>
         <div className="flex items-center gap-4">
-          <div className="bg-indigo-600 p-3 rounded-full">
-            <Icon className="w-6 h-6 text-white" />
+          <div className={`${compact ? 'bg-indigo-600/80 p-1.5' : 'bg-indigo-600 p-3'} rounded-full`}>
+            <Icon className={`${compact ? 'w-4 h-4' : 'w-6 h-6'} text-white`} />
           </div>
           <div>
-            <div className="text-xl font-bold text-white">{roleAction.label}</div>
-            <div className="text-sm text-slate-300">{roleAction.description}</div>
+            <div className={`${compact ? 'text-sm' : 'text-xl'} font-bold text-white`}>{roleAction.label}</div>
+            {!compact && <div className="text-sm text-slate-300">{roleAction.description}</div>}
           </div>
         </div>
       </div>
@@ -135,14 +159,14 @@ export const NightActionPanel = ({
       {myRole === 'witch' && (
         <div className="flex gap-4">
           <Button
-            onClick={() => setWitchAction('save')}
+            onClick={handleWitchSaveSelect}
             className={`flex-1 ${witchAction === 'save' ? 'bg-green-600' : 'bg-slate-700'}`}
           >
             <Heart className="w-4 h-4 mr-2" />
             使用解药
           </Button>
           <Button
-            onClick={() => setWitchAction('poison')}
+            onClick={() => { setWitchAction('poison'); setSelectedTarget(null); }}
             className={`flex-1 ${witchAction === 'poison' ? 'bg-red-600' : 'bg-slate-700'}`}
           >
             <Skull className="w-4 h-4 mr-2" />
@@ -172,13 +196,24 @@ export const NightActionPanel = ({
       {/* Submit Button */}
       <div className="flex justify-center">
         <Button
-          onClick={handleSubmit}
-          disabled={(myRole !== 'witch' && !selectedTarget) || (myRole === 'witch' && !witchAction)}
-          className="px-8 py-3 text-lg bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          onClick={handleActionClick}
+          disabled={(myRole !== 'witch' && !selectedTarget) || (myRole === 'witch' && !witchAction) || (myRole === 'witch' && witchAction === 'poison' && !selectedTarget)}
+          className="px-8 py-3 text-lg bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_15px_rgba(79,70,229,0.3)] transition-all hover:scale-105"
         >
           确认行动
         </Button>
       </div>
+
+      {/* Confrim Dialog */}
+      <ActionConfirmDialog
+        isOpen={isConfirmDialogOpen}
+        onClose={() => setIsConfirmDialogOpen(false)}
+        onConfirm={handleConfirmSubmit}
+        title={dialogTitle}
+        targetName={targetPlayer ? `${targetPlayer.position}号 ${targetPlayer.name}` : undefined}
+        description="此操作无法撤销"
+        actionType={dialogActionType}
+      />
     </div>
   );
 };

@@ -11,20 +11,18 @@ import { SheriffElectionPanel } from '../../components/werewolf/SheriffElectionP
 import { HostControlPanel } from '../../components/werewolf/HostControlPanel';
 import { SubtitleOverlay } from '../../components/werewolf/SubtitleOverlay';
 import { VoiceSettingsDialog } from '../../components/werewolf/VoiceSettingsDialog';
-import { SystemGuide } from '../../components/werewolf/SystemGuide';
 import { tts } from '../../services/TTSService';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
 import { ScrollArea } from '../../components/ui/scroll-area';
 import type { Room, SeerCheckResult } from './types';
-import { Alert, AlertDescription } from '../../components/ui/alert';
-import { Users, Play, LogOut, Bot, Lightbulb, Volume2, VolumeX, MessageSquare, Vote, Mic, MicOff, Send } from 'lucide-react';
+import { Users, Play, LogOut, Bot, Volume2, VolumeX, Mic, MicOff, Send, ChevronDown, ChevronUp } from 'lucide-react';
+import { AIVtuberObserver } from '../../components/werewolf/AIVtuberObserver';
 import { stt } from '../../services/STTService';
 import { useToast } from '../../hooks/use-toast';
 import { useSoundEffects } from '../../hooks/useSoundEffects';
 import { usePlayerSpeeches } from '../../hooks/usePlayerSpeeches';
-import { godAI } from '../../server/GodAIController';
 
 export default function MultiplayerGameRoom() {
   const location = useLocation();
@@ -46,12 +44,10 @@ export default function MultiplayerGameRoom() {
     activeSpeakerId,
     speakerRemainingSeconds,
     aiThinkingIds,
-    prefetchingIds,
     speakerOrderIndex,
     speakerOrderTotal,
     nightHintTargetId,
     nightHintInfo,
-    streamingContent, // New streaming content from hook
     // Sheriff Election
     sheriffCandidates,
     applySheriff,
@@ -68,9 +64,9 @@ export default function MultiplayerGameRoom() {
   const { playSound, toggleMute } = useSoundEffects();
   const { activeSpeeches } = usePlayerSpeeches();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
-  const chatEndRef = useRef<HTMLDivElement>(null);
   const lastSpokenMessageIdRef = useRef<string | null>(null);
   const prevPhaseRef = useRef<string | null>(null);
+  const vtuberPanelRef = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<'lobby' | 'create' | 'join' | 'game'>('lobby');
   const [roomName, setRoomName] = useState('');
   const [playerName, setPlayerName] = useState('');
@@ -91,7 +87,8 @@ export default function MultiplayerGameRoom() {
   const [isRecording, setIsRecording] = useState(false);
   const sttSupported = typeof window !== 'undefined' && ((window as any).webkitSpeechRecognition || (window as any).SpeechRecognition);
   const [latestSpeeches, setLatestSpeeches] = useState<Record<string, string>>({});
-
+  const [chatFilter, setChatFilter] = useState<'all' | 'speech' | 'system' | 'wolf'>('all');
+  const [isHostPanelOpen, setIsHostPanelOpen] = useState(false);
   const fallbackMessages = useMemo(() => {
     if (!roomState) return [] as Array<{ id: string; senderId: string; senderName: string; content: string; type?: 'speech' | 'chat' | 'system' }>;
     const logs = (roomState.gameLog || []).filter(l => l.event === 'speech' && l.details?.content)
@@ -114,7 +111,6 @@ export default function MultiplayerGameRoom() {
       : []
     return [...speechMsgs, ...wolfMsgs]
   }, [roomState?.gameLog])
-
   const seerHistory = useMemo((): SeerCheckResult[] => {
     if (!roomState) return []
     return deriveSeerChecks(roomState) as SeerCheckResult[]
@@ -125,11 +121,6 @@ export default function MultiplayerGameRoom() {
     mode?: 6 | 9 | 12;
     aiPersonas?: string[];
     autoStart?: boolean;
-    playerName?: string;
-    roomName?: string;
-    roomId?: string;
-    isCreating?: boolean;
-    isJoining?: boolean;
   } | null;
 
   // 监听阶段变化并播放音效和旁白
@@ -169,28 +160,13 @@ export default function MultiplayerGameRoom() {
   // 处理从Lobby传来的配置
   useEffect(() => {
     if (lobbyConfig && connected && !roomState) {
-      // AI快速对局模式
-      if (lobbyConfig.autoStart && lobbyConfig.mode) {
-        setPlayerCount(lobbyConfig.mode || 6);
-        setPlayerName(lobbyConfig.playerName || '玩家1');
-        setRoomName(`${lobbyConfig.mode}人局 - ${Date.now()}`);
-        // 自动创建房间并补位AI
-        autoCreateAndFillAI();
-      }
-      // 手动创建房间模式
-      else if (lobbyConfig.isCreating && lobbyConfig.playerName && lobbyConfig.roomName) {
-        setPlayerCount(lobbyConfig.mode || 6);
-        setPlayerName(lobbyConfig.playerName);
-        setRoomName(lobbyConfig.roomName);
-        // 创建房间但不自动补位AI，等待真人玩家加入
-        handleCreateRoom(lobbyConfig.roomName, lobbyConfig.playerName, lobbyConfig.mode);
-      }
-      // 手动加入房间模式
-      else if (lobbyConfig.isJoining && lobbyConfig.playerName && lobbyConfig.roomId) {
-        setPlayerName(lobbyConfig.playerName);
-        // 直接加入指定房间
-        handleJoinRoom(lobbyConfig.roomId, lobbyConfig.playerName);
-      }
+      // 自动设置配置
+      setPlayerCount(lobbyConfig.mode || 6);
+      setPlayerName('玩家1');
+      setRoomName(`${lobbyConfig.mode}人局 - ${Date.now()}`);
+
+      // 自动创建房间并补位AI
+      autoCreateAndFillAI();
     }
   }, [lobbyConfig, connected, roomState]);
 
@@ -199,34 +175,26 @@ export default function MultiplayerGameRoom() {
   useEffect(() => {
     if (chatMessages.length > 0 && roomState) {
       const latestMessage = chatMessages[chatMessages.length - 1];
-      console.log(`[ChatMsg] 收到消息: type=${latestMessage.type}, sender=${latestMessage.senderName}, id=${latestMessage.id}`);
       if (latestMessage.type === 'speech') {
         if (latestMessage.senderId) {
           setLatestSpeeches(prev => ({ ...prev, [latestMessage.senderId]: latestMessage.content }));
         }
-        const shouldSpeak = ttsEnabled && latestMessage.id !== lastSpokenMessageIdRef.current;
-        console.log(`[ChatMsg] TTS检查: ttsEnabled=${ttsEnabled}, isNewMsg=${latestMessage.id !== lastSpokenMessageIdRef.current}, shouldSpeak=${shouldSpeak}`);
-        if (shouldSpeak) {
+        if (ttsEnabled && latestMessage.id !== lastSpokenMessageIdRef.current) {
           lastSpokenMessageIdRef.current = latestMessage.id;
           const role = roomState.players.find(p => p.id === latestMessage.senderId)?.role || 'villager'
-          console.log(`[ChatMsg] 调用TTS: role=${role}, content="${latestMessage.content.substring(0, 30)}..."`);
           tts.speak(latestMessage.content, latestMessage.senderId, { role });
         }
       }
     }
   }, [chatMessages, roomState, ttsEnabled]);
 
-  // 自动滚动到日志底部 (包括流式输出)
+  // 自动滚动到日志底部
   useEffect(() => {
     if (scrollAreaRef.current) {
       const viewport = scrollAreaRef.current.querySelector('[data-slot="scroll-area-viewport"]') as HTMLElement | null;
       if (viewport) viewport.scrollTop = viewport.scrollHeight;
     }
-    // Also scroll when streaming content updates
-    if (chatEndRef.current) {
-      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [chatMessages, streamingContent]);
+  }, [chatMessages]);
 
   // Show role card when role is assigned
   useEffect(() => {
@@ -252,12 +220,8 @@ export default function MultiplayerGameRoom() {
     }
   };
 
-  const handleCreateRoom = async (overrideRoomName?: string, overridePlayerName?: string, overrideMode?: 6 | 9 | 12) => {
-    const rName = overrideRoomName || roomName;
-    const pName = overridePlayerName || playerName;
-    const pCount = overrideMode || playerCount;
-
-    if (!rName || !pName) {
+  const handleCreateRoom = async () => {
+    if (!roomName || !playerName) {
       toast({
         title: '错误',
         description: '请填写房间名和玩家名',
@@ -267,7 +231,7 @@ export default function MultiplayerGameRoom() {
     }
 
     try {
-      const { roomId, playerId } = await createRoom(rName, pName, pCount);
+      const { roomId, playerId } = await createRoom(roomName, playerName, playerCount);
       setCurrentPlayerId(playerId);
       setView('game');
       toast({
@@ -283,10 +247,8 @@ export default function MultiplayerGameRoom() {
     }
   };
 
-  const handleJoinRoom = async (roomId: string, overridePlayerName?: string) => {
-    const pName = overridePlayerName || playerName;
-
-    if (!pName) {
+  const handleJoinRoom = async (roomId: string) => {
+    if (!playerName) {
       toast({
         title: '错误',
         description: '请填写玩家名',
@@ -296,7 +258,7 @@ export default function MultiplayerGameRoom() {
     }
 
     try {
-      const { playerId } = await joinRoom(roomId, pName);
+      const { playerId } = await joinRoom(roomId, playerName);
       setCurrentPlayerId(playerId);
       setView('game');
       toast({
@@ -648,7 +610,7 @@ export default function MultiplayerGameRoom() {
                   <option value={9}>9 人局</option>
                   <option value={12}>12 人局</option>
                 </select>
-                <Button onClick={() => handleCreateRoom()} className="w-full" disabled={!connected}>
+                <Button onClick={handleCreateRoom} className="w-full" disabled={!connected}>
                   <Users className="w-4 h-4 mr-2" />
                   创建房间
                 </Button>
@@ -785,7 +747,6 @@ export default function MultiplayerGameRoom() {
               orderIndex={speakerOrderIndex}
               orderTotal={speakerOrderTotal}
               currentSpeakerName={roomState.players.find(p => p.id === activeSpeakerId)?.name || null}
-              isCurrentSpeakerAI={roomState.players.find(p => p.id === activeSpeakerId)?.type === 'ai'}
             />
           )}
 
@@ -795,16 +756,10 @@ export default function MultiplayerGameRoom() {
                 {(roomState.currentSpeakerOrder || []).map((pid) => {
                   const p = roomState.players.find(x => x.id === pid);
                   const isCurrent = pid === activeSpeakerId;
-                  const done = !!(p as any)?.hasSpokenThisRound;
-                  const isPrefetching = prefetchingIds.has(pid);
+                  const done = !!p?.hasSpokenThisRound;
                   return (
-                    <div key={pid} className={`px-2 py-1 rounded text-xs border transition-all ${
-                      isCurrent ? 'bg-yellow-700 text-white border-yellow-600 animate-pulse' 
-                      : done ? 'bg-green-900 text-green-200 border-green-700' 
-                      : isPrefetching ? 'bg-blue-900/50 text-blue-200 border-blue-600' 
-                      : 'bg-slate-700 text-slate-200 border-slate-600'
-                    }`}>
-                      {p?.position ?? '?'}号 {p?.name ?? ''} {done ? '✓' : isCurrent ? '●' : isPrefetching ? '⏳' : ''}
+                    <div key={pid} className={`px-2 py-1 rounded text-xs border ${isCurrent ? 'bg-yellow-700 text-white border-yellow-600' : done ? 'bg-green-900 text-green-200 border-green-700' : 'bg-slate-700 text-slate-200 border-slate-600'}`}>
+                      {p?.position ?? '?'}号 {p?.name ?? ''} {done ? '✓' : isCurrent ? '●' : ''}
                     </div>
                   );
                 })}
@@ -842,9 +797,9 @@ export default function MultiplayerGameRoom() {
                     recordingPlayerId={recordingPlayerId}
                     speakerRemainingSeconds={speakerRemainingSeconds}
                     aiThinkingIds={displayThinkingIds}
-                    nextSpeakerId={roomState.currentSpeakerOrder?.[((roomState.currentSpeakerIndex ?? -1) + 1)] || null}
                     activeSpeeches={activeSpeeches}
                     seerCheckHistory={seerHistory}
+                    vtuberPanelRef={vtuberPanelRef}
                     onPlayerClick={(player) => {
                       // 讨论期：点击头像显示该玩家最近一次发言
                       if (roomState.phase === 'DAY_DISCUSS' || roomState.phase === 'DAY_DEATH_LAST_WORDS') {
@@ -883,266 +838,221 @@ export default function MultiplayerGameRoom() {
               )}
             </div>
 
-            {/* Right: Dynamic Side Panel */}
-            <div className="lg:col-span-1 space-y-4">
-              {/* Sheriff Election Panel */}
-              {roomState.phase && (
-                <SheriffElectionPanel
-                  phase={roomState.phase}
-                  currentRound={roomState.currentRound}
-                  candidates={sheriffCandidates}
-                  players={roomState.players}
-                  currentPlayerId={currentPlayerId}
-                  hasApplied={sheriffCandidates.includes(currentPlayerId)}
-                  onApply={handleApplySheriff}
-                  onVote={handleVoteSheriff}
-                />
-              )}
+            {/* Right: Dynamic Side Panel with AI VTuber View */}
+            <div className="lg:col-span-1 flex flex-col gap-4 h-[calc(100vh-100px)] sticky top-24">
 
-              {/* Host Control Panel */}
-              <HostControlPanel
-                isHost={isHost}
-                isPaused={isPaused || false}
-                currentSpeakerId={activeSpeakerId}
-                currentPlayerId={currentPlayerId}
-                players={roomState.players}
-                onPause={handleHostPause}
-                onResume={handleHostResume}
-                onForceSkip={handleHostForceSkip}
-              />
-
-              <SystemGuide
-                roomState={roomState}
-                currentPlayerId={currentPlayerId}
-                canSpeak={canCurrentPlayerSpeak || false}
-                speakerRemainingSeconds={speakerRemainingSeconds}
-              />
-
-              {/* 1. Game Log / Chat / Status Panel - 微信风格对话框 */}
-              <Card className="bg-slate-800/80 border-slate-700 flex flex-col overflow-hidden" style={{ height: '400px' }}>
-                <CardHeader className="py-2 px-3 border-b border-slate-700 bg-slate-900/50 flex-shrink-0">
-                  <CardTitle className="text-white text-sm flex items-center gap-2">
-                    <MessageSquare className="w-4 h-4" />
-                    {roomState.phase === 'WAITING' ? '等待大厅' : '游戏记录'}
-                  </CardTitle>
-                  {(roomState.phase === 'DAY_DISCUSS' || roomState.phase === 'DAY_DEATH_LAST_WORDS') && (
-                    <div className="mt-1 flex items-center justify-between text-xs">
-                      <div className="text-slate-400">
-                        当前发言：{roomState.players.find(p => p.id === activeSpeakerId)?.name || '—'}
-                        {roomState.players.find(p => p.id === activeSpeakerId)?.type === 'user' && (
-                          <span className="ml-2 px-1.5 py-0.5 rounded bg-slate-800 text-slate-200">
-                            剩余 {Math.max(0, speakerRemainingSeconds ?? 0)}s
-                          </span>
-                        )}
+              {/* 1. Collapsible Host & Sheriff Panels */}
+              <div className="space-y-2 relative z-50">
+                {isHost && (
+                  <div className="bg-slate-800/80 backdrop-blur rounded-lg border border-slate-700 overflow-hidden">
+                    <div
+                      className="p-2 flex items-center justify-between cursor-pointer hover:bg-slate-700/50"
+                      onClick={() => setIsHostPanelOpen(!isHostPanelOpen)}
+                    >
+                      <div className="flex items-center gap-2 text-xs font-bold text-slate-300">
+                        <Bot className="w-3 h-3" /> 主持人控制台
                       </div>
-                      {canCurrentPlayerSpeak && (
-                        <Button size="sm" variant="destructive" onClick={handleEndTurn} className="h-6 px-2 text-xs">
-                          跳过发言
-                        </Button>
-                      )}
+                      {isHostPanelOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                     </div>
-                  )}
-                </CardHeader>
-                <CardContent className="flex-1 p-0 flex flex-col min-h-0 overflow-hidden">
-                  {/* Chat/Log Area - 固定高度可滚动 */}
-                  <ScrollArea className="flex-1 px-3 py-2" ref={scrollAreaRef}>
-                    <div className="space-y-2">
-                      {roomState.phase === 'WAITING' && (
-                        <Alert className="bg-blue-900/20 border-blue-500/30 mb-4">
-                          <Lightbulb className="h-4 w-4 text-blue-400" />
-                          <AlertDescription className="text-blue-200 text-xs">
-                            {godAI.getPhaseMessage('WAITING')}
-                          </AlertDescription>
-                        </Alert>
-                      )}
 
-                      {(() => {
-                        console.log(`[Render] chatMessages.length=${chatMessages.length}, fallback=${fallbackMessages.length}`);
-                        return null;
-                      })()}
-                      {(chatMessages.length ? chatMessages.slice(-60) : fallbackMessages).map((msg) => {
-                        const isMe = msg.senderId === currentPlayerId;
-                        const isSystem = msg.type === 'system';
-                        const isActive = msg.senderId === activeSpeakerId && msg.type === 'speech';
-                        const speakingHighlight = ttsSpeakingPlayerId === msg.senderId;
-                        
-                        // 系统消息居中显示
-                        if (isSystem) {
-                          return (
-                            <div key={msg.id} className="flex justify-center">
-                              <div className="px-3 py-1 rounded-full bg-slate-700/50 text-slate-400 text-xs">
-                                {msg.content}
-                              </div>
-                            </div>
-                          );
+                    {isHostPanelOpen && (
+                      <div className="p-2 border-t border-slate-700">
+                        <HostControlPanel
+                          isHost={isHost}
+                          isPaused={isPaused || false}
+                          currentSpeakerId={activeSpeakerId}
+                          currentPlayerId={currentPlayerId}
+                          players={roomState.players}
+                          onPause={handleHostPause}
+                          onResume={handleHostResume}
+                          onForceSkip={handleHostForceSkip}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {roomState.phase && (
+                  <SheriffElectionPanel
+                    phase={roomState.phase}
+                    currentRound={roomState.currentRound}
+                    candidates={sheriffCandidates}
+                    players={roomState.players}
+                    currentPlayerId={currentPlayerId}
+                    hasApplied={sheriffCandidates.includes(currentPlayerId)}
+                    onApply={handleApplySheriff}
+                    onVote={handleVoteSheriff}
+                    className="scale-90 origin-top-right mb-2" // Make compact
+                  />
+                )}
+              </div>
+
+              {/* 2. Main "Live View" Port - AI VTuber Observer */}
+              {/* Focus Priority: Active Speaker > Self > Narrator/None */}
+              {(() => {
+                const targetPlayerId = activeSpeakerId || currentPlayerId;
+                const targetPlayer = roomState.players.find(p => p.id === targetPlayerId);
+                const isSpeaking = activeSpeakerId === targetPlayerId;
+                const isThinking = targetPlayerId && aiThinkingIds?.has(targetPlayerId);
+
+                // Mock Mood Logic
+                const getMood = (p: any, status: string) => {
+                  if (status === 'dead') return { emotion: 'panic', intensity: 0 };
+                  if (status === 'speaking') return { emotion: p.role === 'werewolf' ? 'scheming' : 'happy', intensity: 80 };
+                  if (status === 'thinking') return { emotion: 'calm', intensity: 45 };
+                  return { emotion: 'calm', intensity: 20 };
+                };
+
+                const status = !targetPlayer?.is_alive ? 'dead'
+                  : isSpeaking ? 'speaking'
+                    : isThinking ? 'thinking'
+                      : 'idle';
+
+                return (
+                  <div className="flex-1 min-h-0 relative flex flex-col">
+                    <AIVtuberObserver
+                      ref={vtuberPanelRef}
+                      player={targetPlayer ? {
+                        id: targetPlayer.id,
+                        name: targetPlayer.name,
+                        role: targetPlayer.role,
+                        isAlive: targetPlayer.is_alive,
+                      } : null}
+                      status={status}
+                      mood={getMood(targetPlayer, status)}
+                      currentSpeech={targetPlayer ? latestSpeeches[targetPlayer.id] : ''}
+                      className="flex-1"
+                      isUserCompanion={targetPlayerId === currentPlayerId}
+                      onSpeechComplete={() => {
+                        // AI 玩家发言完成后通知游戏继续
+                        if (targetPlayerId !== currentPlayerId && roomState) {
+                          sendSpeechEnd(roomState.roomId, targetPlayerId);
                         }
-                        
-                        const bubbleClass = isMe
-                          ? 'bg-indigo-600 text-white'
-                          : 'bg-slate-700 text-slate-200';
-                        
-                        return (
-                          <div key={msg.id} className={`flex items-end gap-1.5 ${isMe ? 'justify-end' : 'justify-start'}`}>
-                            {!isMe && (
-                              <img
-                                src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${msg.senderId}`}
-                                className="w-5 h-5 rounded-full border border-slate-600 flex-shrink-0"
-                              />
-                            )}
-                            <div className={`px-2.5 py-1.5 rounded-xl max-w-[75%] text-xs ${bubbleClass} ${(isActive || speakingHighlight) ? 'ring-1 ring-yellow-400' : ''}`}>
-                              <div className="text-[10px] opacity-60 mb-0.5">{msg.senderName}</div>
-                              <div className="break-words">{msg.content}</div>
-                            </div>
-                            {isMe && (
-                              <img
-                                src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${msg.senderId}`}
-                                className="w-5 h-5 rounded-full border border-slate-600 flex-shrink-0"
-                              />
-                            )}
-                          </div>
-                        );
-                      })}
+                      }}
+                    />
 
-                      {/* Streaming Content Display */}
-                      {streamingContent && (
-                        <div className="flex items-end gap-1.5 justify-start">
-                          <img
-                            src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${streamingContent.playerId}`}
-                            className="w-5 h-5 rounded-full border border-slate-600 flex-shrink-0"
-                          />
-                          <div className="px-2.5 py-1.5 rounded-xl max-w-[75%] text-xs bg-slate-700 text-slate-200 ring-1 ring-blue-400/50">
-                            <div className="text-[10px] opacity-60 mb-0.5">
-                              {roomState.players.find(p => p.id === streamingContent.playerId)?.name || 'AI'}
-                              <span className="ml-1 text-blue-400">发言中...</span>
-                            </div>
-                            <div className="break-words">
-                              {streamingContent.content}
-                              <span className="inline-block w-1 h-2.5 ml-0.5 bg-blue-400 animate-pulse" />
-                            </div>
-                          </div>
+                    {/* Floating Mic Request Icon */}
+                    <div className="absolute top-4 right-4 z-50">
+                      {/* Only show if I am NOT speaking but want to? Or just generic Mic control? 
+                               Keeping generic voice settings dialog access here or small indicator */}
+                      {canCurrentPlayerSpeak && (
+                        <div className="w-8 h-8 rounded-full bg-green-500/80 backdrop-blur flex items-center justify-center animate-pulse shadow-lg cursor-pointer hover:scale-110 transition-transform">
+                          <Mic className="w-5 h-5 text-white" />
                         </div>
                       )}
+                    </div>
+                  </div>
+                );
+              })()}
 
-                      <div ref={chatEndRef} />
+              {/* 3. Bottom: System Guide & Compact Log/Input */}
+              <div className="h-[35%] flex flex-col gap-2 min-h-[200px]">
+                {/* System Guide Condensed */}
+                {/* <SystemGuide ... /> - Replacing with integrated status in VTuber or small bar */}
+
+                {/* Action Panels Overlay? No, keep them accessible */}
+                {/* Night Actions */}
+                {roomState.phase === 'NIGHT' && roomState.myRole && (
+                  <div className="absolute top-1/2 left-0 w-full z-50 p-2">
+                    <Card className="bg-indigo-900/90 backdrop-blur border-indigo-500/50 shadow-2xl">
+                      <CardHeader className="py-2"><CardTitle className="text-sm">夜间行动</CardTitle></CardHeader>
+                      <CardContent className="p-2">
+                        <NightActionPanel
+                          myRole={roomState.myRole}
+                          players={roomState.players}
+                          myId={currentPlayerId}
+                          nightHintTargetId={nightHintTargetId || undefined}
+                          nightHintTargetName={nightHintInfo?.name}
+                          nightHintTargetRole={nightHintInfo?.role}
+                          nightHintTargetPosition={nightHintInfo?.position}
+                          onActionSubmit={handleNightAction}
+                          compact={true}
+                        />
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+
+                {/* Voting Prompt */}
+                {roomState.phase === 'DAY_VOTE' && (
+                  <div className="bg-red-900/80 backdrop-blur p-2 rounded text-center text-red-100 font-bold border border-red-500 animate-pulse">
+                    ⚠️ 请点击左侧头像投票
+                  </div>
+                )}
+
+                {/* Chat/Input Container - Styled as "Control Deck" */}
+                <Card className="flex-1 bg-black/60 backdrop-blur border-slate-700 flex flex-col overflow-hidden">
+                  {/* Tab/Header */}
+                  <div className="flex items-center gap-1 p-1 bg-black/40 border-b border-white/5 overflow-x-auto">
+                    <Button size="sm" variant={chatFilter === 'all' ? 'secondary' : 'ghost'} onClick={() => setChatFilter('all')} className="h-6 text-[10px] px-2">ALL</Button>
+                    <Button size="sm" variant={chatFilter === 'speech' ? 'secondary' : 'ghost'} onClick={() => setChatFilter('speech')} className="h-6 text-[10px] px-2">LIVE</Button>
+                    <Button size="sm" variant={chatFilter === 'system' ? 'secondary' : 'ghost'} onClick={() => setChatFilter('system')} className="h-6 text-[10px] px-2">SYS</Button>
+                    {(roomState.phase === 'NIGHT' && roomState.myRole === 'werewolf') && (
+                      <Button size="sm" variant="destructive" onClick={() => setChatFilter('wolf')} className="h-6 text-[10px] px-2">WOLF</Button>
+                    )}
+                  </div>
+
+                  {/* Scroller */}
+                  <ScrollArea className="flex-1 p-2" ref={scrollAreaRef}>
+                    <div className="space-y-2">
+                      {/* Log entries styled as terminal/chat lines */}
+                      {(() => {
+                        const source = chatMessages.length ? chatMessages.slice(-20) : fallbackMessages.slice(-20); // Show fewer
+                        const filtered = source.filter((m) => {
+                          if (chatFilter === 'speech') return m.type === 'speech';
+                          if (chatFilter === 'system') return m.type === 'system';
+                          if (chatFilter === 'wolf') return m.type === 'chat';
+                          return true;
+                        });
+                        return filtered.map((msg) => {
+                          const isMe = msg.senderId === currentPlayerId;
+                          const isSystem = msg.type === 'system';
+                          if (isSystem) return (
+                            <div key={msg.id} className="text-[10px] text-blue-300 font-mono border-l-2 border-blue-500 pl-2">
+                              [{new Date().toLocaleTimeString().slice(0, 5)}] SYS: {msg.content}
+                            </div>
+                          );
+                          return (
+                            <div key={msg.id} className={`flex gap-2 text-xs ${isMe ? 'flex-row-reverse' : ''}`}>
+                              <span className={`font-bold ${isMe ? 'text-indigo-400' : 'text-slate-400'}`}>{msg.senderName}:</span>
+                              <span className="text-slate-200 break-all">{msg.content}</span>
+                            </div>
+                          );
+                        });
+                      })()}
                     </div>
                   </ScrollArea>
 
-                  {/* Input Area (Strict Mode) */}
-                  {canCurrentPlayerSpeak && (
-                    <div className="p-3 border-t border-slate-700 bg-slate-900/30">
-                      <form
-                        onSubmit={(e) => { e.preventDefault(); handleSendChat(); }}
-                        className="flex gap-2 items-center"
-                      >
-                        <Input
-                          value={chatInput}
-                          onChange={(e) => setChatInput(e.target.value)}
-                          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendChat(); } }}
-                          placeholder={"轮到你发言了...（Enter发送，Shift+Enter换行）"}
-                          className="bg-slate-900 border-slate-600 text-white flex-1"
-                        />
-                        <Button type="submit" variant="secondary" disabled={!chatInput.trim()}>
-                          <Send className="w-4 h-4 mr-1" />
-                          发送
+                  {/* Input Area */}
+                  <div className="p-2 bg-black/20 border-t border-white/5">
+                    <form
+                      onSubmit={(e) => { e.preventDefault(); handleSendChat(); }}
+                      className="flex gap-2"
+                    >
+                      <Input
+                        value={chatInput}
+                        onChange={(e) => setChatInput(e.target.value)}
+                        placeholder={canCurrentPlayerSpeak ? "请输入发言..." : "..."}
+                        className="h-8 text-xs bg-transparent border-slate-600 focus:border-indigo-500 text-white"
+                        disabled={!canCurrentPlayerSpeak && !(roomState.phase === 'NIGHT' && roomState.myRole === 'werewolf')}
+                      />
+                      <Button type="submit" size="sm" className="h-8 w-10 p-0" variant="secondary" disabled={!canCurrentPlayerSpeak}>
+                        <Send className="w-3 h-3" />
+                      </Button>
+                      {sttSupported && (
+                        <Button
+                          type="button"
+                          onClick={() => isRecording ? stt.stop() : stt.start(currentPlayerId)}
+                          size="sm"
+                          className={`h-8 w-8 p-0 ${isRecording ? 'bg-red-500 hover:bg-red-600' : 'bg-slate-700'}`}
+                        >
+                          {isRecording ? <MicOff className="w-3 h-3" /> : <Mic className="w-3 h-3" />}
                         </Button>
-                        {sttSupported && (
-                          <Button
-                            onClick={async () => {
-                              if (!roomState) return;
-                              if (isRecording) { stt.stop(); return; }
-                              try {
-                                if (navigator.mediaDevices?.getUserMedia) {
-                                  await navigator.mediaDevices.getUserMedia({ audio: true });
-                                }
-                              } catch (e: any) {
-                                toast({ title: '无法访问麦克风', description: '请在浏览器允许麦克风权限后重试', variant: 'destructive' });
-                                return;
-                              }
-                              stt.start(currentPlayerId);
-                            }}
-                            variant="secondary"
-                            title={isRecording ? '停止语音输入' : '开始语音输入'}
-                          >
-                            {isRecording ? <MicOff className="w-4 h-4 mr-1" /> : <Mic className="w-4 h-4 mr-1" />}
-                            {isRecording ? '停止' : '语音输入'}
-                          </Button>
-                        )}
-                        <Button onClick={handleEndTurn} variant="destructive" title="跳过本轮发言">
-                          跳过发言
-                        </Button>
-                      </form>
-                    </div>
-                  )}
-
-                  {/* Wolf Night Chat */}
-                  {roomState.phase === 'NIGHT' && roomState.myRole === 'werewolf' && (
-                    <div className="p-3 border-t border-slate-700 bg-slate-900/30">
-                      <form
-                        onSubmit={(e) => {
-                          e.preventDefault();
-                          if (!chatInput.trim()) return;
-                          sendChat(roomState.roomId, currentPlayerId, chatInput, 'chat');
-                          setChatInput('');
-                        }}
-                        className="flex gap-2 items-center"
-                      >
-                        <Input
-                          value={chatInput}
-                          onChange={(e) => setChatInput(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                              e.preventDefault();
-                              if (chatInput.trim()) {
-                                sendChat(roomState.roomId, currentPlayerId, chatInput, 'chat');
-                                setChatInput('');
-                              }
-                            }
-                          }}
-                          placeholder={"狼人夜聊（仅队友可见，Enter发送，Shift+Enter换行）"}
-                          className="bg-slate-900 border-slate-600 text-white flex-1"
-                        />
-                        <Button type="submit" variant="secondary" title="发送夜聊" disabled={!chatInput.trim()} className="px-4">
-                          <Send className="w-4 h-4 mr-1" />
-                          发送
-                        </Button>
-                      </form>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* 2. Action Panels (Conditional) */}
-
-              {/* Night Actions */}
-              {roomState.phase === 'NIGHT' && roomState.myRole && (
-                <Card className="bg-indigo-900/20 border-indigo-500/30 animate-in slide-in-from-right">
-                  <CardHeader className="py-3">
-                    <CardTitle className="text-indigo-300 text-sm">夜晚行动</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <NightActionPanel
-                      myRole={roomState.myRole}
-                      players={roomState.players}
-                      myId={currentPlayerId}
-                      nightHintTargetId={nightHintTargetId || undefined}
-                      nightHintTargetName={nightHintInfo?.name}
-                      nightHintTargetRole={nightHintInfo?.role}
-                      nightHintTargetPosition={nightHintInfo?.position}
-                      onActionSubmit={handleNightAction}
-                    />
-                  </CardContent>
+                      )}
+                    </form>
+                  </div>
                 </Card>
-              )}
-
-              {/* Voting Prompt */}
-              {roomState.phase === 'DAY_VOTE' && (
-                <Alert className="bg-red-900/20 border-red-500/50 animate-pulse">
-                  <Vote className="h-4 w-4 text-red-400" />
-                  <AlertDescription className="text-red-200">
-                    请点击左侧头像进行投票！
-                  </AlertDescription>
-                </Alert>
-              )}
+              </div>
 
             </div>
           </div>

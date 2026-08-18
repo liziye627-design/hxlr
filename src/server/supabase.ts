@@ -9,11 +9,13 @@ const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_A
 // Supabase 是可选的 - 如果没有配置，使用 mock client
 let supabase: SupabaseClient | null = null;
 
-if (supabaseUrl && supabaseKey) {
+const isValidUrl = supabaseUrl.startsWith('http://') || supabaseUrl.startsWith('https://');
+
+if (isValidUrl && supabaseUrl && supabaseKey) {
     supabase = createClient(supabaseUrl, supabaseKey);
     console.log('✅ Supabase connected');
 } else {
-    console.warn('⚠️ Supabase not configured - database features disabled (this is OK for local scripts)');
+    console.warn('⚠️ Supabase not configured - database features disabled');
 }
 
 export { supabase };

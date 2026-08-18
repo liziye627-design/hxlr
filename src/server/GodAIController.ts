@@ -1,4 +1,5 @@
 import type { GamePhase } from '../types';
+import { openLLMTuber } from '../services/OpenLLMBridge';
 
 interface PhaseAnnouncement {
   phase: GamePhase;
@@ -76,11 +77,18 @@ export class GodAIController {
   /**
    * 播报阶段转换
    */
-  announcePhase(phase: GamePhase): PhaseAnnouncement {
+  async announcePhase(phase: GamePhase): Promise<PhaseAnnouncement> {
     this.currentPhase = phase;
     const announcement = PHASE_ANNOUNCEMENTS[phase];
     console.log(`[上帝AI] ${announcement.icon} ${announcement.title}`);
     console.log(`[上帝AI] ${announcement.description}`);
+
+    // Call Open-LLM-VTuber to announce phase
+    // Fire and forget to not block game loop
+    openLLMTuber.speak(`现在进入${announcement.title}。${announcement.description}`).catch(err => {
+      console.warn('GodAI: VTuber speech failed', err);
+    });
+
     return announcement;
   }
 
@@ -152,6 +160,17 @@ export class GodAIController {
     roleName?: string;
     winner?: 'werewolf' | 'villager';
   }): string {
+    const msg = this._getLogMessage(event);
+
+    // Optional: Make VTuber announce significant events
+    if (event.type === 'win' || event.type === 'death' || event.type === 'voted_out') {
+      openLLMTuber.speak(msg).catch(console.warn);
+    }
+
+    return msg;
+  }
+
+  private _getLogMessage(event: { type: string, playerName?: string, winner?: string }): string {
     switch (event.type) {
       case 'death':
         return `💀 昨晚 ${event.playerName} 被狼人杀害了`;

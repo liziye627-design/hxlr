@@ -14,7 +14,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { tts } from '@/services/TTSService';
-import { API_BASE } from '@/config/api';
+import { getApiUrl, getWebSocketUrl } from '@/lib/runtimeUrls';
 
 // --- Interfaces ---
 interface Character {
@@ -68,7 +68,7 @@ export default function JubenshaGameRoom() {
     useEffect(() => {
         (async () => {
             try {
-                const res = await fetch(`${API_BASE}/api/jubensha/rooms/${roomId}`);
+                const res = await fetch(getApiUrl(`/api/jubensha/rooms/${roomId}`));
                 const data = await res.json();
                 const room = data?.room;
                 if (room) {
@@ -106,9 +106,7 @@ export default function JubenshaGameRoom() {
         })();
 
         const playerId = `player_${Date.now()}`;
-        const wsProto = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsBase = (import.meta as any)?.env?.VITE_JUBENSHA_WS_URL || `${wsProto}//${typeof window !== 'undefined' ? window.location.hostname : '127.0.0.1'}:${(import.meta as any)?.env?.VITE_SOCKET_PORT || 3001}`;
-        const ws = new WebSocket(`${wsBase}/jubensha/${roomId}/${playerId}`);
+        const ws = new WebSocket(getWebSocketUrl(`/jubensha/${roomId}/${playerId}`));
 
         ws.onopen = () => {
             console.log('Connected to game room');

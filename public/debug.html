@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Test</title>
+    <style>
+        body { 
+            margin: 20px; 
+            font-family: monospace; 
+            background: #000;
+            color: #0f0;
+        }
+        .error { color: #f00; }
+        .success { color: #0f0; }
+    </style>
+</head>
+<body>
+    <h1>React 应用调试页面</h1>
+    <div id="status"></div>
+    <hr>
+    <h2>测试结果：</h2>
+    <div id="results"></div>
+    
+    <script>
+        const status = document.getElementById('status');
+        const results = document.getElementById('results');
+        
+        function log(msg, isError = false) {
+            const div = document.createElement('div');
+            div.className = isError ? 'error' : 'success';
+            div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            results.appendChild(div);
+        }
+        
+        // 捕获所有错误
+        window.onerror = function(msg, url, lineNo, columnNo, error) {
+            log(`❌ JavaScript Error: ${msg} at ${url}:${lineNo}:${columnNo}`, true);
+            if (error && error.stack) {
+                log(`Stack: ${error.stack}`, true);
+            }
+            return false;
+        };
+        
+        window.addEventListener('unhandledrejection', event => {
+            log(`❌ Unhandled Promise Rejection: ${event.reason}`, true);
+        });
+        
+        // 测试1: 检查基本环境
+        log('✓ 页面已加载');
+        log(`✓ User Agent: ${navigator.userAgent}`);
+        
+        // 测试2: 检查 root 元素
+        const root = document.getElementById('root');
+        if (root) {
+            log('✓ #root 元素存在');
+        } else {
+            log('❌ #root 元素不存在', true);
+        }
+        
+        // 测试3: 尝试加载 main.tsx
+        status.innerHTML = '<strong>正在加载 React 应用...</strong>';
+        
+        import('/src/main.tsx')
+            .then(() => {
+                log('✓ main.tsx 加载成功');
+                status.innerHTML = '<strong class="success">✓ React 应用加载成功</strong>';
+                
+                // 检查 root 是否被渲染
+                setTimeout(() => {
+                    const root = document.getElementById('root');
+                    if (root && root.innerHTML.trim().length > 0) {
+                        log('✓ React 应用已渲染到 DOM');
+                    } else {
+                        log('❌ React 应用未渲染 - root 元素仍为空', true);
+                    }
+                }, 1000);
+            })
+            .catch(error => {
+                log(`❌ main.tsx 加载失败: ${error.message}`, true);
+                if (error.stack) {
+                    log(`Stack: ${error.stack}`, true);
+                }
+                status.innerHTML = '<strong class="error">❌ React 应用加载失败</strong>';
+            });
+    </script>
+    
+    <!-- 添加实际的 root div -->
+    <hr>
+    <h2>#root 元素内容：</h2>
+    <div id="root" style="border: 2px solid #0f0; padding: 10px; min-height: 100px;"></div>
+</body>
+</html>

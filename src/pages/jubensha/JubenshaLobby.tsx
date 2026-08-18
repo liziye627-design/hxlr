@@ -1,276 +1,251 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Upload, Users, Clock, Search, Star } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { ScrollText, Search, Upload, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
+import type { CompanionCarryMode } from '@/config/gameModes';
+import { useAgentSelection } from '@/contexts/AgentSelectionContext';
+import { getApiUrl } from '@/lib/runtimeUrls';
 import type { Story } from '@/types';
-import { motion, AnimatePresence } from 'framer-motion';
-import { API_BASE } from '@/config/api';
+
+const FALLBACK_STORIES: Story[] = [
+  {
+    id: 'late-bell',
+    title: '午夜钟声',
+    category: 'mystery',
+    difficulty: 'normal',
+    min_players: 4,
+    max_players: 7,
+    description: '节奏紧凑，适合快速搜证和集中推理。',
+    cover_url: '/source/63bc45524c4584a23494c66308f4af41.jpg',
+    story_data: { estimatedDuration: '60' },
+    play_count: 0,
+    rating: 4.6,
+    is_premium: false,
+    created_at: '2026-03-15T00:00:00.000Z',
+  },
+  {
+    id: 'school-rule',
+    title: '二十二条校规',
+    category: 'mystery',
+    difficulty: 'hard',
+    min_players: 4,
+    max_players: 6,
+    description: '封闭校园、强角色压迫感，适合沉浸演绎。',
+    cover_url: '/source/0c6b8d63105a43b51646f3f7887247ca.jpg',
+    story_data: { estimatedDuration: '75' },
+    play_count: 0,
+    rating: 4.8,
+    is_premium: false,
+    created_at: '2026-03-15T00:00:00.000Z',
+  },
+  {
+    id: 'split-diary',
+    title: '分裂日记',
+    category: 'horror',
+    difficulty: 'hard',
+    min_players: 4,
+    max_players: 7,
+    description: '线索散、反转多，适合慢慢拼出整张案板。',
+    cover_url: '/source/2fadb9e28aab32ac3f245e3d8e9733a7.jpg',
+    story_data: { estimatedDuration: '90' },
+    play_count: 0,
+    rating: 4.7,
+    is_premium: false,
+    created_at: '2026-03-15T00:00:00.000Z',
+  },
+];
+
+type ScriptMurderLocationState = {
+  carryMode?: CompanionCarryMode;
+};
 
 export default function JubenshaLobby() {
-    const navigate = useNavigate();
-    const [stories, setStories] = useState<Story[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [, setUploading] = useState(false);
-    const [scriptFile, setScriptFile] = useState<File | null>(null);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { selectedAgent, carryModes, setPendingMode } = useAgentSelection();
+  const [stories, setStories] = useState<Story[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
 
-    useEffect(() => {
-        (async () => {
-            const fallbackScripts: Story[] = [
-                { id: 'local_school_rules', title: '第二十二条校规', description: '一所神秘学校的诡异校规，隐藏着不为人知的秘密...', category: '悬疑', cover_url: 'https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=400&h=600&fit=crop', min_players: 4, max_players: 7, story_data: { estimatedDuration: '90' } as any, is_premium: false, difficulty: 'normal', play_count: 0 } as any,
-                { id: 'local_heist', title: '收获日', description: '一场精心策划的行动，每个人都有自己的目的...', category: '犯罪', cover_url: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=400&h=600&fit=crop', min_players: 5, max_players: 7, story_data: { estimatedDuration: '90' } as any, is_premium: false, difficulty: 'hard', play_count: 0 } as any,
-                { id: 'local_psychoboy', title: '病娇男孩的精分日记', description: '一本日记，记录着扭曲的爱与执念...', category: '恐怖', cover_url: 'https://images.unsplash.com/photo-1509248961158-e54f6934749c?w=400&h=600&fit=crop', min_players: 4, max_players: 7, story_data: { estimatedDuration: '60' } as any, is_premium: false, difficulty: 'normal', play_count: 0 } as any,
-                { id: 'script_it_pennywise', title: '小丑回魂', description: '1989年德里镇，孩子们接连失踪。窝囊废俱乐部必须面对以恐惧为食的古老邪恶...', category: '恐怖', cover_url: 'https://images.unsplash.com/photo-1509557965875-b88c97052f0e?w=400&h=600&fit=crop', min_players: 4, max_players: 6, story_data: { estimatedDuration: '120' } as any, is_premium: true, difficulty: 'insane', play_count: 0 } as any,
-            ];
+  const carryMode =
+    (location.state as ScriptMurderLocationState | null)?.carryMode ??
+    carryModes.script_murder ??
+    'with_agent';
+  const companionEnabled = carryMode !== 'solo';
 
-            // 直接使用本地剧本列表
-            setStories(fallbackScripts);
-            setLoading(false);
-        })();
-    }, []);
+  useEffect(() => {
+    const loadStories = async () => {
+      try {
+        const response = await fetch(getApiUrl('/api/jubensha/rooms'));
+        const json = await response.json();
+        const rooms = (json?.rooms || []) as Array<any>;
 
-    const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (file) {
-            const validTypes = ['application/pdf', 'text/plain', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
-            if (!validTypes.includes(file.type)) {
-                alert('仅支持 PDF、TXT、DOCX 格式');
-                return;
-            }
-            if (file.size > 10 * 1024 * 1024) {
-                alert('文件大小不能超过 10MB');
-                return;
-            }
-            setScriptFile(file);
+        if (!rooms.length) {
+          setStories(FALLBACK_STORIES);
+          return;
         }
+
+        setStories(
+          rooms.map((room, index) => ({
+            id: room.id,
+            title: room.title,
+            description:
+              room.description || FALLBACK_STORIES[index % FALLBACK_STORIES.length].description,
+            category: 'mystery',
+            difficulty: 'normal',
+            min_players: 4,
+            max_players: room.playerCount || 6,
+            cover_url:
+              FALLBACK_STORIES[index % FALLBACK_STORIES.length].cover_url ||
+              FALLBACK_STORIES[0].cover_url,
+            story_data: { estimatedDuration: '60' },
+            play_count: 0,
+            rating: 4.5,
+            is_premium: false,
+            created_at: '2026-03-15T00:00:00.000Z',
+          })),
+        );
+      } catch (error) {
+        console.error('Failed to load script rooms:', error);
+        setStories(FALLBACK_STORIES);
+      }
     };
 
-    const handleUploadScript = async () => {
-        if (!scriptFile) return;
-        setUploading(true);
-        try {
-            const formData = new FormData();
-            formData.append('script', scriptFile);
-            const response = await fetch(`${API_BASE}/api/jubensha/upload`, {
-                method: 'POST',
-                body: formData,
-            });
-            const data = await response.json();
-            if (data.success) {
-                navigate(`/script-murder/room/${data.roomId}`);
-            } else {
-                alert('上传失败：' + data.error);
+    void loadStories();
+  }, []);
+
+  const filteredStories = stories.filter((story) => {
+    const target = `${story.title} ${story.description ?? ''} ${story.category}`.toLowerCase();
+    return target.includes(searchTerm.toLowerCase());
+  });
+
+  const openTeammatePicker = () => {
+    setPendingMode('script_murder');
+    navigate('/chat');
+  };
+
+  const enterStory = (storyId: string) => {
+    navigate(`/script-murder/room/${storyId}`, {
+      state: {
+        carryMode,
+        ...(companionEnabled
+          ? {
+              leadAgentId: selectedAgent.id,
+              agentIds: [selectedAgent.id],
             }
-        } catch (error) {
-            alert('上传失败：' + error);
-        } finally {
-            setUploading(false);
-        }
-    };
+          : {
+              agentIds: [] as string[],
+            }),
+      },
+    });
+  };
 
-    const filteredStories = stories.filter(story =>
-        story.title.includes(searchTerm) ||
-        (story.description || '').includes(searchTerm) ||
-        story.category.includes(searchTerm)
-    );
+  return (
+    <div className="relative overflow-hidden px-4 pb-24 pt-6 md:px-8 md:pb-10 md:pt-8">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute left-[-12%] top-[8%] h-[30rem] w-[30rem] rounded-full bg-[#3730a3]/18 blur-[130px]" />
+        <div className="absolute right-[-8%] top-[18%] h-[24rem] w-[24rem] rounded-full bg-[#f2875f]/12 blur-[120px]" />
+      </div>
 
-    const getDifficultyColor = (difficulty: string) => {
-        switch (difficulty) {
-            case 'beginner': return 'bg-green-500/80 text-white';
-            case 'normal': return 'bg-blue-500/80 text-white';
-            case 'hard': return 'bg-purple-500/80 text-white';
-            case 'insane': return 'bg-red-500/80 text-white';
-            default: return 'bg-gray-500/80 text-white';
-        }
-    };
-
-    const getDifficultyText = (difficulty: string) => {
-        const map: Record<string, string> = {
-            beginner: '新手',
-            normal: '进阶',
-            hard: '烧脑',
-            insane: '地狱'
-        };
-        return map[difficulty] || difficulty;
-    };
-
-    const fixedTitles = ['第二十二条校规', '收获日', '病娇男孩的精分日记', '小丑回魂'];
-    const params = 'q=80&auto=format&fit=crop&w=600&ixlib=rb-4.0.3';
-    const fixedCovers = [
-        '/source/script_covers/school_rules.jpg',
-        '/source/script_covers/heist.jpg',
-        '/source/script_covers/psychoboy.jpg',
-        '/source/script_covers/it_pennywise.jpg',
-    ];
-    const fixedByTitle: Record<string, string> = {
-        '第二十二条校规': '/source/script_covers/school_rules.jpg',
-        '收获日': '/source/script_covers/heist.jpg',
-        '病娇男孩的精分日记': '/source/script_covers/psychoboy.jpg',
-        '小丑回魂': '/source/script_covers/it_pennywise.jpg',
-    };
-
-    return (
-        <div className="min-h-screen bg-[#0a0a16] text-white overflow-x-hidden">
-            {/* Background Effects */}
-            <div className="fixed inset-0 pointer-events-none">
-                <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-purple-900/20 blur-[120px] rounded-full" />
-                <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-blue-900/20 blur-[120px] rounded-full" />
-                <div className="absolute top-[40%] left-[30%] w-[30%] h-[30%] bg-indigo-900/10 blur-[100px] rounded-full" />
+      <div className="relative mx-auto flex max-w-[1440px] flex-col gap-6">
+        <section className="rounded-[30px] border border-white/10 bg-[#0e0f17]/88 px-5 py-5 shadow-[0_24px_120px_rgba(0,0,0,0.42)] backdrop-blur-2xl md:px-7">
+          <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+            <div className="space-y-3">
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[11px] tracking-[0.22em] text-white/56">
+                <ScrollText className="h-3.5 w-3.5" />
+                剧本杀
+              </div>
+              <h1 className="text-3xl font-semibold tracking-tight text-white md:text-5xl">
+                选一个剧本
+              </h1>
             </div>
 
-            <div className="relative z-10 container mx-auto px-4 py-12">
-                {/* Header */}
-                <div className="text-center mb-16 space-y-6">
-                    <motion.div
-                        initial={{ opacity: 0, y: -20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.8 }}
-                    >
-                        <h1 className="text-7xl font-bold mb-4 tracking-tight">
-                            <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400 animate-gradient-x">
-                                剧本杀宇宙
-                            </span>
-                        </h1>
-                        <p className="text-xl text-gray-400 max-w-2xl mx-auto font-light">
-                            探索无尽的故事，体验不一样的人生。AI 主持人将带你进入一个充满悬疑与推理的世界。
-                        </p>
-                    </motion.div>
-
-                    {/* Search Bar */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.3, duration: 0.8 }}
-                        className="max-w-xl mx-auto relative"
-                    >
-                        <div className="relative group">
-                            <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-blue-600 rounded-full blur opacity-25 group-hover:opacity-50 transition duration-500" />
-                            <div className="relative bg-white/5 backdrop-blur-xl rounded-full border border-white/10 flex items-center p-2">
-                                <Search className="w-5 h-5 text-gray-400 ml-3" />
-                                <Input
-                                    type="text"
-                                    placeholder="搜索剧本、类型或关键词..."
-                                    className="border-0 bg-transparent text-white placeholder:text-gray-500 focus-visible:ring-0 h-10"
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                />
-                            </div>
-                        </div>
-                    </motion.div>
-                </div>
-
-                {/* Scripts Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 mb-20">
-                    <AnimatePresence>
-                        {filteredStories.map((story, index) => (
-                            <motion.div
-                                key={story.id}
-                                layout
-                                initial={{ opacity: 0, scale: 0.9 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                exit={{ opacity: 0, scale: 0.9 }}
-                                transition={{ duration: 0.3, delay: index * 0.05 }}
-                                whileHover={{ y: -10, transition: { duration: 0.2 } }}
-                                className="group cursor-pointer"
-                                onClick={() => {
-                                    // 特定剧本有专门的游戏页面
-                                    if (story.id === 'script_it_pennywise') {
-                                        navigate('/script-murder/it');
-                                    } else if (story.id === 'local_school_rules') {
-                                        navigate('/script-murder/school-rules');
-                                    } else if (story.id === 'local_heist') {
-                                        navigate('/script-murder/payday');
-                                    } else if (story.id === 'local_psychoboy') {
-                                        navigate('/script-murder/yandere');
-                                    } else {
-                                        navigate(`/script-murder/room/${story.id}`);
-                                    }
-                                }}
-                            >
-                                <div className="relative aspect-[3/4] rounded-2xl overflow-hidden mb-4 shadow-2xl ring-1 ring-white/10 group-hover:ring-purple-500/50 transition-all duration-300">
-                                    {(() => {
-                                        const unsplashFallback = `https://images.unsplash.com/photo-1478720568477-152d9b164e26?${params}`;
-                                        const titleSrc = fixedByTitle[story.title];
-                                        const indexSrc = fixedCovers[index];
-                                        const coverSrc = titleSrc || story.cover_url || indexSrc || unsplashFallback;
-                                        const altText = story.title || fixedTitles[index] || '剧本封面';
-                                        return (
-                                            <img
-                                                src={coverSrc}
-                                                alt={altText}
-                                                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                                                onError={(e) => { e.currentTarget.src = unsplashFallback; }}
-                                            />
-                                        );
-                                    })()}
-                                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-80 group-hover:opacity-90 transition-opacity" />
-
-                                    {/* Top Badges */}
-                                    <div className="absolute top-3 left-3 flex gap-2">
-                                        {story.is_premium && (
-                                            <Badge className="bg-yellow-500/90 text-black border-0 backdrop-blur-sm">
-                                                <Star className="w-3 h-3 mr-1 fill-current" /> VIP
-                                            </Badge>
-                                        )}
-                                        <Badge className={`${getDifficultyColor(story.difficulty)} border-0 backdrop-blur-sm`}>
-                                            {getDifficultyText(story.difficulty)}
-                                        </Badge>
-                                    </div>
-
-                                    {/* Content Overlay */}
-                                    <div className="absolute bottom-0 left-0 right-0 p-6 transform translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
-                                        <h3 className="text-2xl font-bold text-white mb-2 leading-tight group-hover:text-purple-300 transition-colors">
-                                            {story.title}
-                                        </h3>
-                                        <div className="flex items-center gap-4 text-sm text-gray-300 mb-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-100">
-                                            <div className="flex items-center gap-1">
-                                                <Users className="w-4 h-4" />
-                                                <span>{story.min_players}-{story.max_players}人</span>
-                                            </div>
-                                            <div className="flex items-center gap-1">
-                                                <Clock className="w-4 h-4" />
-                                                <span>{story.story_data?.estimatedDuration || '60'}分钟</span>
-                                            </div>
-                                        </div>
-                                        <p className="text-sm text-gray-400 line-clamp-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-150">
-                                            {story.description || '暂无简介'}
-                                        </p>
-                                    </div>
-
-                                    
-                                </div>
-                            </motion.div>
-                        ))}
-                    </AnimatePresence>
-                </div>
-
-                {/* Empty State / Upload Prompt */}
-                {filteredStories.length === 0 && !loading && (
-                    <div className="text-center py-20">
-                        <p className="text-2xl text-gray-400 mb-8">没有找到相关剧本...</p>
-                    </div>
-                )}
-
-                {/* Custom Upload Section - Compact Version */}
-                <div className="flex justify-center mb-12">
-                    <Button
-                        variant="outline"
-                        size="lg"
-                        className="rounded-full border-white/20 bg-white/5 hover:bg-white/10 text-white px-8 py-6 h-auto gap-3 group"
-                        onClick={() => navigate('/script-murder/upload')}
-                    >
-                        <div className="p-2 rounded-full bg-purple-500/20 group-hover:bg-purple-500/30 transition-colors">
-                            <Upload className="w-6 h-6 text-purple-400" />
-                        </div>
-                        <div className="text-left">
-                            <div className="font-semibold text-lg">上传自定义剧本</div>
-                            <div className="text-xs text-gray-400">支持 PDF/Word 自动解析</div>
-                        </div>
-                    </Button>
-                </div>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/28" />
+                <Input
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  placeholder="搜剧本、搜关键词"
+                  className="h-12 w-full rounded-2xl border-white/10 bg-white/[0.04] pl-11 text-white placeholder:text-white/28 sm:w-[260px]"
+                />
+              </div>
+              <Button
+                onClick={() => navigate('/script-murder/upload')}
+                variant="outline"
+                className="h-12 rounded-2xl border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.08]"
+              >
+                <Upload className="mr-2 h-4 w-4" />
+                上传剧本
+              </Button>
             </div>
-        </div>
-    );
+          </div>
+        </section>
+
+        <section className="rounded-[30px] border border-white/10 bg-[#0f1118]/90 p-5 shadow-[0_20px_90px_rgba(0,0,0,0.35)] backdrop-blur-2xl">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <div>
+              <div className="text-[11px] tracking-[0.18em] text-white/38">本局队友</div>
+              <div className="mt-2 text-2xl font-semibold text-white">
+                {companionEnabled ? selectedAgent.name : '单排入局'}
+              </div>
+              <div className="mt-2 text-sm text-white/58">
+                {companionEnabled
+                  ? `${selectedAgent.name} 会跟你一起进入这个剧本。`
+                  : '这一局先不绑定队友。'}
+              </div>
+            </div>
+
+            <Button
+              type="button"
+              variant="outline"
+              onClick={openTeammatePicker}
+              className="h-11 rounded-2xl border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.08]"
+            >
+              <Users className="mr-2 h-4 w-4" />
+              {companionEnabled ? '换队友' : '加个队友'}
+            </Button>
+          </div>
+        </section>
+
+        <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+          {filteredStories.map((story) => (
+            <button
+              key={story.id}
+              type="button"
+              onClick={() => enterStory(story.id)}
+              className="group overflow-hidden rounded-[28px] border border-white/10 bg-[#0f1118]/90 text-left shadow-[0_18px_90px_rgba(0,0,0,0.35)] transition hover:border-white/18"
+            >
+              <div className="relative h-[18rem] overflow-hidden">
+                <img
+                  src={story.cover_url || FALLBACK_STORIES[0].cover_url || ''}
+                  alt={story.title}
+                  className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]"
+                />
+                <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(8,8,10,0.08),rgba(8,8,10,0.92)_78%)]" />
+              </div>
+              <div className="space-y-4 p-5">
+                <div>
+                  <div className="text-[11px] tracking-[0.18em] text-white/40">
+                    {story.min_players}-{story.max_players} 人
+                  </div>
+                  <h3 className="mt-2 text-2xl font-semibold text-white">{story.title}</h3>
+                  <p className="mt-2 text-sm leading-7 text-white/60">{story.description}</p>
+                </div>
+
+                <div className="flex items-center justify-between text-sm text-white/44">
+                  <span>{story.story_data?.estimatedDuration || '60'} 分钟</span>
+                  <span>{story.rating.toFixed(1)} / 5</span>
+                </div>
+
+                <div className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-3 text-center text-sm text-white transition group-hover:bg-white/[0.08]">
+                  进入剧本
+                </div>
+              </div>
+            </button>
+          ))}
+        </section>
+      </div>
+    </div>
+  );
 }

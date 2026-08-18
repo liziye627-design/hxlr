@@ -1,4 +1,4 @@
-import { supabase } from '../supabase.js';
+import { supabase } from '../supabase';
 
 export interface Script {
     id: string;
@@ -21,21 +21,10 @@ export interface Script {
 
 export class ScriptRepository {
     /**
-     * 检查 Supabase 是否可用
-     */
-    private isAvailable(): boolean {
-        return supabase !== null;
-    }
-
-    /**
      * 创建新剧本
      */
     async createScript(script: Partial<Script>): Promise<Script | null> {
-        if (!this.isAvailable()) {
-            console.warn('Supabase not configured, createScript skipped');
-            return null;
-        }
-        const { data, error } = await supabase!
+        const { data, error } = await supabase
             .from('scripts')
             .insert({
                 id: script.id || `script-${Date.now()}`,
@@ -67,8 +56,7 @@ export class ScriptRepository {
      * 根据ID获取剧本
      */
     async getScriptById(scriptId: string): Promise<Script | null> {
-        if (!this.isAvailable()) return null;
-        const { data, error } = await supabase!
+        const { data, error } = await supabase
             .from('scripts')
             .select('*')
             .eq('id', scriptId)
@@ -83,8 +71,7 @@ export class ScriptRepository {
      * 获取所有剧本列表
      */
     async getAllScripts(): Promise<Script[]> {
-        if (!this.isAvailable()) return [];
-        const { data, error } = await supabase!
+        const { data, error } = await supabase
             .from('scripts')
             .select('*')
             .eq('status', 'active')
@@ -102,7 +89,6 @@ export class ScriptRepository {
      * 更新剧本信息
      */
     async updateScript(scriptId: string, updates: Partial<Script>): Promise<void> {
-        if (!this.isAvailable()) return;
         const updateData: any = {};
         if (updates.title !== undefined) updateData.title = updates.title;
         if (updates.description !== undefined) updateData.description = updates.description;
@@ -111,7 +97,7 @@ export class ScriptRepository {
 
         updateData.updated_at = new Date().toISOString();
 
-        const { error } = await supabase!
+        const { error } = await supabase
             .from('scripts')
             .update(updateData)
             .eq('id', scriptId);
@@ -125,14 +111,13 @@ export class ScriptRepository {
      * 增加播放次数
      */
     async incrementPlayCount(scriptId: string): Promise<void> {
-        if (!this.isAvailable()) return;
         // Note: Supabase doesn't support atomic increment easily without RPC.
         // For now, we'll fetch and update, or ignore race conditions for play count.
         // Ideally use an RPC function: await supabase.rpc('increment_play_count', { script_id: scriptId })
 
-        const { data } = await supabase!.from('scripts').select('play_count').eq('id', scriptId).single();
+        const { data } = await supabase.from('scripts').select('play_count').eq('id', scriptId).single();
         if (data) {
-            await supabase!
+            await supabase
                 .from('scripts')
                 .update({ play_count: (data.play_count || 0) + 1, updated_at: new Date().toISOString() })
                 .eq('id', scriptId);
@@ -143,8 +128,7 @@ export class ScriptRepository {
      * 归档剧本
      */
     async archiveScript(scriptId: string): Promise<void> {
-        if (!this.isAvailable()) return;
-        await supabase!
+        await supabase
             .from('scripts')
             .update({ status: 'archived' })
             .eq('id', scriptId);

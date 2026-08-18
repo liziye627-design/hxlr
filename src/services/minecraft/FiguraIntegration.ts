@@ -1,0 +1,493 @@
+/**
+ * Figura 集成服务
+ * 管理角色外观模型的安装和配置
+ */
+
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
+import type { FiguraAvatarConfig } from './types';
+
+export interface FiguraInstallationStatus {
+  installed: boolean;
+  version?: string;
+  avatarsPath: string | null;
+  installedAvatars: string[];
+}
+
+export interface AvatarInstallResult {
+  success: boolean;
+  avatarName: string;
+  installedFiles: string[];
+  errors: string[];
+}
+
+export class FiguraIntegration {
+  private minecraftRoot: string;
+  private figuraRoot: string;
+  private avatarsRoot: string;
+
+  constructor(minecraftRoot: string) {
+    this.minecraftRoot = minecraftRoot;
+    this.figuraRoot = path.join(minecraftRoot, 'config', 'figura');
+    this.avatarsRoot = path.join(this.figuraRoot, 'avatars');
+  }
+
+  /**
+   * 检查 Figura 安装状态
+   */
+  async checkInstallation(): Promise<FiguraInstallationStatus> {
+    const figuraModPath = path.join(this.minecraftRoot, 'mods');
+    const configFile = path.join(this.figuraRoot, 'config.json');
+
+    let installed = false;
+    let version: string | undefined;
+    const installedAvatars: string[] = [];
+
+    try {
+      // 检查 mods 目录中是否有 Figura
+      const modsFiles = await fs.readdir(figuraModPath);
+      const figuraMod = modsFiles.find((f) => f.toLowerCase().includes('figura'));
+      if (figuraMod) {
+        installed = true;
+        // 尝试从文件名提取版本
+        const versionMatch = figuraMod.match(/figura-?(\d+\.\d+\.\d+)/i);
+        if (versionMatch) {
+          version = versionMatch[1];
+        }
+      }
+    } catch {
+      // mods 目录不存在
+    }
+
+    // 检查已安装的 avatars
+    try {
+      const avatarDirs = await fs.readdir(this.avatarsRoot);
+      for (const dir of avatarDirs) {
+        const stat = await fs.stat(path.join(this.avatarsRoot, dir));
+        if (stat.isDirectory()) {
+          installedAvatars.push(dir);
+        }
+      }
+    } catch {
+      // avatars 目录不存在
+    }
+
+    return {
+      installed,
+      version,
+      avatarsPath: installed ? this.avatarsRoot : null,
+      installedAvatars,
+    };
+  }
+
+  /**
+   * 安装角色外观
+   */
+  async installAvatar(
+    avatarName: string,
+    config: FiguraAvatarConfig
+  ): Promise<AvatarInstallResult> {
+    const result: AvatarInstallResult = {
+      success: false,
+      avatarName,
+      installedFiles: [],
+      errors: [],
+    };
+
+    const avatarDir = path.join(this.avatarsRoot, avatarName);
+
+    try {
+      // 创建 avatar 目录
+      await fs.mkdir(avatarDir, { recursive: true });
+
+      // 复制模型文件
+      if (config.modelPath) {
+        try {
+          const modelContent = await fs.readFile(config.modelPath);
+          const targetPath = path.join(avatarDir, 'model.bbmodel');
+          await fs.writeFile(targetPath, modelContent);
+          result.installedFiles.push('model.bbmodel');
+        } catch (error) {
+          result.errors.push(`Failed to copy model: ${error}`);
+        }
+      }
+
+      // 复制纹理文件
+      if (config.texturePath) {
+        try {
+          const textureContent = await fs.readFile(config.texturePath);
+          const targetPath = path.join(avatarDir, 'texture.png');
+          await fs.writeFile(targetPath, textureContent);
+          result.installedFiles.push('texture.png');
+        } catch (error) {
+          result.errors.push(`Failed to copy texture: ${error}`);
+        }
+      }
+
+      // 复制自发光纹理
+      if (config.emissiveTexturePath) {
+        try {
+          const emissiveContent = await fs.readFile(config.emissiveTexturePath);
+          const targetPath = path.join(avatarDir, 'texture_e.png');
+          await fs.writeFile(targetPath, emissiveContent);
+          result.installedFiles.push('texture_e.png');
+        } catch (error) {
+          result.errors.push(`Failed to copy emissive texture: ${error}`);
+        }
+      }
+
+      // 生成或复制脚本
+      const scriptContent = config.scriptPath
+        ? await fs.readFile(config.scriptPath, 'utf-8').catch(() => null)
+        : null;
+
+      const generatedScript = this.generateLuaScript(avatarName, config);
+      await fs.writeFile(
+        path.join(avatarDir, 'script.lua'),
+        scriptContent || generatedScript
+      );
+      result.installedFiles.push('script.lua');
+
+      // 生成 avatar.json 元数据
+      const avatarMeta = {
+        name: avatarName,
+        version: '1.0.0',
+        description: `${avatarName} avatar for Minecraft Digital Human`,
+        author: 'Digital Human System',
+      };
+      await fs.writeFile(
+        path.join(avatarDir, 'avatar.json'),
+        JSON.stringify(avatarMeta, null, 2)
+      );
+      result.installedFiles.push('avatar.json');
+
+      result.success = result.errors.length === 0;
+    } catch (error) {
+      result.errors.push(`Installation failed: ${error}`);
+    }
+
+    return result;
+  }
+
+  /**
+   * 生成 Lua 脚本
+   */
+  private generateLuaScript(avatarName: string, config: FiguraAvatarConfig): string {
+    const animations = config.animations || {};
+
+    return `-- ${avatarName} Avatar Script
+-- Auto-generated by Minecraft Digital Human System
+-- Generated at: ${new Date().toISOString()}
+
+-- ========== 初始化 ==========
+function events.entity_init()
+    -- 隐藏原版玩家模型
+    vanilla_model.PLAYER:setVisible(false)
+
+    -- 初始化状态
+    local state = {
+        expression = "neutral",
+        lastPose = "",
+        isMoving = false,
+    }
+
+    -- 存储到全局
+    avatarState = state
+end
+
+-- ========== 主循环 ==========
+function events.tick()
+    if not avatarState then return end
+
+    -- 获取玩家状态
+    local pose = player:getPose()
+    local velocity = player:getVelocity()
+    local speed = velocity:length()
+
+    -- 更新移动状态
+    avatarState.isMoving = speed > 0.1
+
+    -- 动画状态机
+    updateAnimations(pose, avatarState.isMoving)
+end
+
+-- ========== 动画更新 ==========
+function updateAnimations(pose, isMoving)
+    -- 获取动画引用 (如果有 Blockbench 动画)
+    local idleAnim = animations.model and animations.model.idle
+    local walkAnim = animations.model and animations.model.walk
+    local runAnim = animations.model and animations.model.run
+    local crouchAnim = animations.model and animations.model.crouch
+
+    -- 停止所有动画
+    if idleAnim then idleAnim:setPlaying(false) end
+    if walkAnim then walkAnim:setPlaying(false) end
+    if runAnim then runAnim:setPlaying(false) end
+    if crouchAnim then crouchAnim:setPlaying(false) end
+
+    -- 根据状态播放动画
+    if pose == "CROUCHING" and crouchAnim then
+        crouchAnim:setPlaying(true)
+    elseif isMoving then
+        if speed > 0.3 and runAnim then
+            runAnim:setPlaying(true)
+        elseif walkAnim then
+            walkAnim:setPlaying(true)
+        end
+    elseif idleAnim then
+        idleAnim:setPlaying(true)
+    end
+end
+
+-- ========== 表情系统 ==========
+-- 通过 Ping 同步到其他玩家
+function pings.setExpression(expressionType)
+    if not models.model or not models.model.Face then return end
+
+    -- UV 偏移来切换表情
+    local uvOffsets = {
+        neutral = { 0, 0 },
+        happy = { 8, 0 },
+        sad = { 16, 0 },
+        angry = { 24, 0 },
+        surprised = { 0, 8 },
+    }
+
+    local offset = uvOffsets[expressionType] or uvOffsets.neutral
+
+    -- 设置面部 UV
+    if models.model.Face.Mouth then
+        models.model.Face.Mouth:setUV(offset[1], offset[2])
+    end
+
+    if avatarState then
+        avatarState.expression = expressionType
+    end
+end
+
+-- 接收来自 AI 的表情指令
+function pings.receiveAIExpression(expression)
+    pings.setExpression(expression)
+end
+
+-- ========== 动作触发 ==========
+function pings.triggerAction(actionType)
+    -- 挥手、点头、摇头等动作
+    if actionType == "wave" then
+        -- 播放挥手动画
+    elseif actionType == "nod" then
+        -- 点头动画
+    elseif actionType == "shake" then
+        -- 摇头动画
+    end
+end
+
+-- ========== 渲染 ==========
+function events.render(delta, context)
+    -- 自定义渲染逻辑
+    -- 可以添加粒子效果、光源等
+end
+
+-- ========== 实用函数 ==========
+function log(message)
+    print("[${avatarName}] " .. message)
+end
+
+-- 初始化日志
+log("Avatar loaded successfully!")
+`;
+  }
+
+  /**
+   * 卸载角色外观
+   */
+  async uninstallAvatar(avatarName: string): Promise<boolean> {
+    const avatarDir = path.join(this.avatarsRoot, avatarName);
+
+    try {
+      await fs.rm(avatarDir, { recursive: true, force: true });
+      return true;
+    } catch (error) {
+      console.error(`Failed to uninstall avatar ${avatarName}:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * 列出已安装的角色外观
+   */
+  async listInstalledAvatars(): Promise<string[]> {
+    try {
+      const dirs = await fs.readdir(this.avatarsRoot);
+      const avatars: string[] = [];
+
+      for (const dir of dirs) {
+        const stat = await fs.stat(path.join(this.avatarsRoot, dir));
+        if (stat.isDirectory()) {
+          avatars.push(dir);
+        }
+      }
+
+      return avatars;
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * 获取角色外观详情
+   */
+  async getAvatarDetails(avatarName: string): Promise<{
+    exists: boolean;
+    files: string[];
+    metadata?: Record<string, unknown>;
+  }> {
+    const avatarDir = path.join(this.avatarsRoot, avatarName);
+
+    try {
+      const files = await fs.readdir(avatarDir);
+      let metadata: Record<string, unknown> | undefined;
+
+      try {
+        const metaContent = await fs.readFile(
+          path.join(avatarDir, 'avatar.json'),
+          'utf-8'
+        );
+        metadata = JSON.parse(metaContent);
+      } catch {
+        // 没有元数据文件
+      }
+
+      return {
+        exists: true,
+        files,
+        metadata,
+      };
+    } catch {
+      return {
+        exists: false,
+        files: [],
+      };
+    }
+  }
+
+  /**
+   * 创建默认角色外观模板
+   */
+  async createDefaultAvatar(avatarName: string): Promise<AvatarInstallResult> {
+    // 创建一个简单的默认外观
+    const defaultConfig: FiguraAvatarConfig = {
+      modelPath: '', // 将生成默认模型
+      texturePath: '', // 将生成默认纹理
+      animations: {
+        idle: 'idle',
+        walk: 'walk',
+      },
+    };
+
+    const avatarDir = path.join(this.avatarsRoot, avatarName);
+    await fs.mkdir(avatarDir, { recursive: true });
+
+    // 生成默认 Blockbench 模型
+    const defaultModel = this.generateDefaultBlockbenchModel(avatarName);
+    await fs.writeFile(
+      path.join(avatarDir, 'model.bbmodel'),
+      JSON.stringify(defaultModel, null, 2)
+    );
+
+    // 生成默认纹理 (8x8 皮肤格式)
+    const defaultTexture = this.generateDefaultTexture();
+    await fs.writeFile(
+      path.join(avatarDir, 'texture.png'),
+      defaultTexture
+    );
+
+    return this.installAvatar(avatarName, defaultConfig);
+  }
+
+  /**
+   * 生成默认 Blockbench 模型
+   */
+  private generateDefaultBlockbenchModel(name: string): Record<string, unknown> {
+    return {
+      meta: {
+        format_version: '4.0',
+        model_format: 'free',
+        box_uv: true,
+      },
+      name,
+      geometry_name: `geometry.${name.toLowerCase()}`,
+      visible_box: [1, 1, 0],
+      variable_placeholders: '',
+      resolution: {
+        width: 64,
+        height: 64,
+      },
+      elements: [
+        {
+          name: 'Head',
+          box_uv: true,
+          rescale: false,
+          locked: false,
+          from: [-4, 24, -4],
+          to: [4, 32, 4],
+          autouv: 0,
+          color: 0,
+          origin: [0, 28, 0],
+          faces: {},
+          type: 'cube',
+          uuid: crypto.randomUUID(),
+        },
+        {
+          name: 'Body',
+          box_uv: true,
+          rescale: false,
+          locked: false,
+          from: [-4, 12, -2],
+          to: [4, 24, 2],
+          autouv: 0,
+          color: 0,
+          origin: [0, 18, 0],
+          faces: {},
+          type: 'cube',
+          uuid: crypto.randomUUID(),
+        },
+      ],
+      outliner: [
+        {
+          name: 'Root',
+          origin: [0, 24, 0],
+          color: 0,
+          uuid: crypto.randomUUID(),
+          children: [],
+        },
+      ],
+    };
+  }
+
+  /**
+   * 生成默认纹理 (Base64 PNG)
+   */
+  private generateDefaultTexture(): Buffer {
+    // 这是一个 64x64 的简单皮肤模板
+    // 实际应用中应该使用真实的皮肤图片
+    const pngHeader = Buffer.from([
+      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+    ]);
+    // 简化：返回空 Buffer，实际应生成完整 PNG
+    return Buffer.alloc(64 * 64 * 4);
+  }
+}
+
+// 单例实例
+let figuraInstance: FiguraIntegration | null = null;
+
+export function getFiguraIntegration(minecraftRoot?: string): FiguraIntegration {
+  if (!figuraInstance && minecraftRoot) {
+    figuraInstance = new FiguraIntegration(minecraftRoot);
+  }
+  if (!figuraInstance) {
+    throw new Error('FiguraIntegration not initialized. Call with minecraftRoot first.');
+  }
+  return figuraInstance;
+}

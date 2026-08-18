@@ -1,4 +1,4 @@
-import { supabase } from '../supabase.js';
+import { supabase } from '../supabase';
 
 export interface AgentConfig {
   id: string;
@@ -26,18 +26,10 @@ export interface AgentConfig {
 
 export class AgentRepository {
   /**
-   * 检查 Supabase 是否可用
-   */
-  private isAvailable(): boolean {
-    return supabase !== null;
-  }
-
-  /**
    * 保存单个Agent配置到数据库
    */
   async saveAgent(agentConfig: AgentConfig): Promise<void> {
-    if (!this.isAvailable()) return;
-    const { error } = await supabase!
+    const { error } = await supabase
       .from('ai_agents')
       .upsert({
         id: agentConfig.id,
@@ -54,10 +46,6 @@ export class AgentRepository {
       }, { onConflict: 'script_id, character_name' });
 
     if (error) {
-      if ((error as any).code === '42P01' || /relation\s+"public\.ai_agents"\s+does\s+not\s+exist/i.test(String(error.message))) {
-        console.warn('ai_agents table missing, skipping saveAgent for development environment');
-        return;
-      }
       console.error('Error saving agent:', error);
     }
   }
@@ -75,8 +63,7 @@ export class AgentRepository {
    * 根据剧本ID加载所有Agent配置
    */
   async loadAgentsByScript(scriptId: string): Promise<AgentConfig[]> {
-    if (!this.isAvailable()) return [];
-    const { data, error } = await supabase!
+    const { data, error } = await supabase
       .from('ai_agents')
       .select('*')
       .eq('script_id', scriptId)
@@ -84,10 +71,6 @@ export class AgentRepository {
       .order('created_at', { ascending: true });
 
     if (error) {
-      if ((error as any).code === '42P01' || /relation\s+"public\.ai_agents"\s+does\s+not\s+exist/i.test(String(error.message))) {
-        console.warn('ai_agents table missing, returning empty agents list');
-        return [];
-      }
       console.error('Error loading agents:', error);
       return [];
     }
@@ -110,22 +93,14 @@ export class AgentRepository {
    * 获取单个Agent配置
    */
   async getAgentById(agentId: string): Promise<AgentConfig | null> {
-    if (!this.isAvailable()) return null;
-    const { data, error } = await supabase!
+    const { data, error } = await supabase
       .from('ai_agents')
       .select('*')
       .eq('id', agentId)
       .eq('is_active', true)
       .single();
 
-    if (error) {
-      if ((error as any).code === '42P01' || /relation\s+"public\.ai_agents"\s+does\s+not\s+exist/i.test(String(error.message))) {
-        console.warn('ai_agents table missing, getAgentById returns null');
-        return null;
-      }
-      return null;
-    }
-    if (!data) return null;
+    if (error || !data) return null;
 
     return {
       id: data.id,
@@ -145,33 +120,23 @@ export class AgentRepository {
    * 删除Agent
    */
   async deleteAgent(agentId: string): Promise<void> {
-    if (!this.isAvailable()) return;
-    const { error } = await supabase!
+    await supabase
       .from('ai_agents')
       .update({ is_active: false })
       .eq('id', agentId);
-    if (error) {
-      if ((error as any).code === '42P01') return;
-      console.error('Error deleting agent:', error);
-    }
   }
 
   /**
    * 更新Agent的System Prompt
    */
   async updateSystemPrompt(agentId: string, newPrompt: string): Promise<void> {
-    if (!this.isAvailable()) return;
-    const { error } = await supabase!
+    await supabase
       .from('ai_agents')
       .update({
         system_prompt: newPrompt,
         updated_at: new Date().toISOString()
       })
       .eq('id', agentId);
-    if (error) {
-      if ((error as any).code === '42P01') return;
-      console.error('Error updating system prompt:', error);
-    }
   }
 }
 

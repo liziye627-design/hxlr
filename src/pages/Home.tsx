@@ -2,11 +2,54 @@ import { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Sparkles, Users, ScrollText, Binary, ArrowRight, ChevronDown } from 'lucide-react';
-import { useUser } from '@/contexts/UserContext';
+import { Sparkles, Users, ScrollText, Binary, ArrowRight } from 'lucide-react';
 import { companionApi } from '@/db/api';
 import type { AICompanion } from '@/types';
 import { motion } from 'framer-motion';
+
+type FeaturedAgent = {
+  id: string;
+  name: string;
+  role: string;
+  game: string;
+  description: string;
+  avatar: string;
+};
+
+const FALLBACK_AGENTS: FeaturedAgent[] = [
+  {
+    id: 'alpha',
+    name: 'Alpha',
+    role: 'Logic Core',
+    game: 'Werewolf',
+    description: 'Deduction-focused AI player for discussion, pressure, and voting.',
+    avatar: 'https://api.dicebear.com/9.x/bottts-neutral/svg?seed=Alpha&backgroundColor=1e1b4b,312e81',
+  },
+  {
+    id: 'aqua',
+    name: 'Aqua',
+    role: 'Social Driver',
+    game: 'Werewolf',
+    description: 'Reads table emotion and drives momentum in live multiplayer rooms.',
+    avatar: 'https://api.dicebear.com/9.x/bottts-neutral/svg?seed=Aqua&backgroundColor=082f49,0f766e',
+  },
+  {
+    id: 'shadow',
+    name: 'Shadow',
+    role: 'Script Actor',
+    game: 'Jubensha',
+    description: 'Carries character memory, secrets, and consistent role-play output.',
+    avatar: 'https://api.dicebear.com/9.x/bottts-neutral/svg?seed=Shadow&backgroundColor=111827,4c1d95',
+  },
+  {
+    id: 'mc-agent',
+    name: 'MC Agent',
+    role: 'World Partner',
+    game: 'Minecraft',
+    description: 'Reserved for future sandbox co-play, survival support, and building.',
+    avatar: 'https://api.dicebear.com/9.x/bottts-neutral/svg?seed=MC-Agent&backgroundColor=052e16,166534',
+  },
+];
 
 // Full Screen Section Component
 function FullScreenSection({ children, className, id }: { children: React.ReactNode; className?: string; id?: string }) {
@@ -18,7 +61,6 @@ function FullScreenSection({ children, className, id }: { children: React.ReactN
 }
 
 export default function Home() {
-  const { user } = useUser();
   const [companions, setCompanions] = useState<AICompanion[]>([]);
   const [activeSection, setActiveSection] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -49,6 +91,23 @@ export default function Home() {
       });
     }
   };
+
+  const featuredAgents: FeaturedAgent[] = companions.length > 0
+    ? companions.slice(0, 4).map((companion, index) => ({
+      id: companion.id,
+      name: companion.name,
+      role: companion.type === 'shadow'
+        ? 'Script Actor'
+        : companion.type === 'rookie'
+          ? 'Support Player'
+          : companion.type === 'aqua'
+            ? 'Social Driver'
+            : 'Logic Core',
+      game: index === 3 ? 'Minecraft' : index % 2 === 0 ? 'Werewolf' : 'Jubensha',
+      description: companion.description || 'AI agent ready for real-time co-play.',
+      avatar: companion.avatar_url || `https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${encodeURIComponent(companion.name)}&backgroundColor=0f172a,312e81`,
+    }))
+    : FALLBACK_AGENTS;
 
   return (
     <div
@@ -97,7 +156,48 @@ export default function Home() {
               当 AI 遇见无限想象
             </p>
 
-            
+            <div className="mx-auto grid max-w-6xl grid-cols-1 gap-4 md:grid-cols-4">
+              {featuredAgents.map((agent, index) => (
+                <motion.div
+                  key={agent.id}
+                  initial={{ opacity: 0, y: 24 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.45, delay: index * 0.08 }}
+                  className="group rounded-[28px] border border-white/10 bg-white/[0.04] p-4 text-left backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.08]"
+                >
+                  <div className="mb-4 flex items-start justify-between gap-3">
+                    <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/5">
+                      <img
+                        src={agent.avatar}
+                        alt={agent.name}
+                        className="h-20 w-20 object-cover transition-transform duration-500 group-hover:scale-105"
+                      />
+                    </div>
+                    <Badge className="border-white/10 bg-white/5 text-white/80">
+                      {agent.game}
+                    </Badge>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div>
+                      <p className="text-lg font-semibold text-white">{agent.name}</p>
+                      <p className="text-xs uppercase tracking-[0.24em] text-cyan-300/80">{agent.role}</p>
+                    </div>
+                    <p className="text-sm leading-6 text-gray-300">
+                      {agent.description}
+                    </p>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+
+            <div className="mt-8 flex flex-wrap items-center justify-center gap-3 text-sm text-white/60">
+              <span>Backend-linked AI lineup</span>
+              <span className="h-1 w-1 rounded-full bg-white/30" />
+              <span>Werewolf + Jubensha live</span>
+              <span className="h-1 w-1 rounded-full bg-white/30" />
+              <span>MC reserved</span>
+            </div>
           </motion.div>
         </div>
       </FullScreenSection>
@@ -193,12 +293,12 @@ export default function Home() {
         </div>
       </FullScreenSection>
 
-      {/* Section 4: Adventure World */}
+      {/* Section 4: Minecraft World */}
       <FullScreenSection className="relative">
         <div className="absolute inset-0">
           <img
             src="https://images.unsplash.com/photo-1519074069444-1ba4fff66d16?q=80&w=2070&auto=format&fit=crop"
-            alt="Adventure"
+            alt="Minecraft"
             className="w-full h-full object-cover opacity-40"
           />
           <div className="absolute inset-0 bg-gradient-to-r from-[#030014] via-[#030014]/80 to-transparent" />
@@ -215,7 +315,7 @@ export default function Home() {
               <div className="p-4 rounded-2xl bg-emerald-600/20 text-emerald-400 backdrop-blur-xl border border-emerald-500/30">
                 <Binary className="w-12 h-12" />
               </div>
-              <h2 className="text-5xl md:text-7xl font-bold text-white">数字冒险</h2>
+              <h2 className="text-5xl md:text-7xl font-bold text-white">Minecraft</h2>
             </div>
 
             <p className="text-xl text-gray-300 leading-relaxed max-w-xl">
@@ -227,7 +327,7 @@ export default function Home() {
               <Badge variant="outline" className="text-lg py-2 px-4 border-emerald-500/50 text-emerald-300 bg-emerald-500/10">交互式小说</Badge>
             </div>
 
-            <Link to="/adventure">
+            <Link to="/minecraft">
               <Button size="lg" className="mt-8 h-16 px-12 text-xl rounded-full bg-emerald-600 hover:bg-emerald-700 shadow-[0_0_30px_rgba(5,150,105,0.5)] transition-all hover:scale-105">
                 开启旅程
                 <ArrowRight className="ml-2 w-6 h-6" />
