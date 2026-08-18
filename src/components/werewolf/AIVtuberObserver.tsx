@@ -86,11 +86,13 @@ export const AIVtuberObserver = React.forwardRef<HTMLDivElement, AIVtuberProps>(
   ) => {
     const [thinkingText, setThinkingText] = useState(THINKING_BUBBLES[0]);
     const [audioWaveHeights, setAudioWaveHeights] = useState<number[]>(Array.from({ length: 20 }, () => 20));
+    const [vtuberConnected, setVtuberConnected] = useState(false);
 
     const runtimeManifest = resolveRuntimeManifest(player?.name, isUserCompanion);
     const effectiveModelName = modelName || runtimeManifest.modelName;
     const shouldUseLive2D = useLive2D && runtimeManifest.runtimeType === 'live2d' && !!effectiveModelName;
     const vtuberMode = isUserCompanion ? 'dialogue' : 'tts';
+    const showVTuber = shouldUseLive2D && vtuberConnected;
     const isSpeaking = status === 'speaking';
 
     useEffect(() => {
@@ -203,10 +205,23 @@ export const AIVtuberObserver = React.forwardRef<HTMLDivElement, AIVtuberProps>(
                 mode={vtuberMode}
                 ttsText={!isUserCompanion && status === 'speaking' ? currentSpeech : undefined}
                 modelName={effectiveModelName}
-                onReady={onVTuberReady}
+                onReady={() => {
+                  setVtuberConnected(true);
+                  onVTuberReady?.();
+                }}
                 onSpeechEnd={onSpeechComplete}
+                onStatusChange={(s) => {
+                  if (s === 'connected') setVtuberConnected(true);
+                  if (s === 'disconnected' || s === 'error') setVtuberConnected(false);
+                  onStatusChange?.(s);
+                }}
                 showControls={false}
               />
+              {!vtuberConnected && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <StaticAvatar player={player} status={status} />
+                </div>
+              )}
               {status === 'speaking' && (
                 <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                   <div className="h-48 w-48 animate-ping rounded-full border border-cyan-400/30" style={{ animationDuration: '2s' }} />
